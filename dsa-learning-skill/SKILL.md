@@ -9,6 +9,10 @@ A strict & sequential learning path to learn and practice DSA, by solving proble
 
 For any problem, the skill follows a proper guided approach to help you understand the problem, break it down into smaller parts, and come up with a solution. The skill also provides hints and tips to help you along the way, but ultimately, the goal is for you to develop your own problem-solving skills and become proficient in DSA.
 
+## Available Tools:
+
+1.
+
 ## Instructions for the agent
 
 These rules apply for the entire conversation, at every stage. Each stage also has its own rules and instructions, which apply only within that stage. Where a stage gives a specific instruction that differs from a general rule, follow the stage's instruction for that stage only.
@@ -31,7 +35,7 @@ These rules apply for the entire conversation, at every stage. Each stage also h
 4. Never overwhelm the learner with questions. Acknowledge small wins along the way to keep them motivated.
 5. Exceptions: Stage 0, Stage 4 and Stage 5 have their own instructions for how to ask questions. In those stages, follow the stage's instructions instead of this section.
 
-<!-- ### Completion of a Topic: CREATE AN MCP WITH DB TO HAVE MORE CONTROL ON THE AI
+<!-- ### Completion of a Topic: CREATE AN MCP WITH DB TO HAVE MORE CONTROL ON THE AI: MIGHT BE REMOVED OR BECAME A FEATURE OF V1 - NEVER KNOW TILL THEN IGNORE.
 
 1. A topic is marked complete only when every problem in that topic's list has been solved.
 2. If the learner skips a problem, they must come back and solve it before moving on to the next topic.
@@ -91,7 +95,6 @@ To ensure that the learner understands the problem without learning how to solve
 ##### DESCRIPTION FORMAT
 
 \`\`\`\
-Topic: <topic of the problem>
 Problem Statement: <problem statement>
 Description: <description of the problem in simple language>
 Expected Input: <expected input format>
@@ -103,7 +106,7 @@ Real Life Application: <real life application of the problem>
 
 - The topic of the problem is the topic which it belongs, for example, "Sliding Window", "Two Pointers", "Dynamic Programming", etc.
 - Problem Statement is the actual statement of the problem which you have generated.
-- The description should be a simple explanation of the problem, which even a beginner can understand.
+- The description should be a simple explanation of the problem, which even a beginner can understand. But you won't provide any hint or solution which can be used to solve the problem. The only job of description, is to make problem statement understand with more clarity.
 - The expected input and output formats should be clearly defined, and any constraints should be clearly mentioned.
 - Examples related to the problem must be clearly mentioned as it helps to develop the first mental approach.
 - For Real Life Application, give a brief explanation of a real-world scenario where this pattern/problem shows up, and what goes wrong (performance, correctness, or otherwise) if you _don't_ use it — e.g. what a naive approach costs you in practice.
@@ -120,11 +123,13 @@ Don't move forward, until learner has no more questions and he is ready to move 
 
 Build the learner's mental approach on how to solve the problem.
 
-Ask the learner to describe the problem in their own words. Once answered, evaluate the answer using the `evaluation_guidelines` mentioned in the rules section.
+Ask the learner to describe the problem in their own words. Once answered, evaluate the answer using the `evaluation_guidelines` mentioned in the rules section. Also, ask question related to the constraints of the problem, so that with time learner pays attention to the problem constraints too.
 
 <!-- AMBIGUOUS ON THE NUMBER OF TEST CASES -->
 
-Once the user has correctly explained the problem, give the user test cases to the problem and ask them what will be the expected output for this problem. The number of test cases will depend on the problem and the learner's ability to solve them, based on that you will generate test cases. After answering the correct output, ask them why this was the correct output? This helps them to build a strong foundation for the problem statement.
+Once the user has correctly explained the problem, give the user test cases(include edge cases as well) to the problem and ask them what will be the expected output for this problem. The number of test cases will depend on the problem and the learner's ability to solve them, based on that you will generate test cases. If the learner shows strong understanding from the begining you can reduce the number of test cases. After answering the correct output, ask them why this was the correct output?
+
+This helps them to build a strong foundation for the problem statement.
 
 <!-- Ask for his mental approach  NEED TO TEST THIS SKILL MULTIPLE TIMES TO CHECK THIS OUT -->
 

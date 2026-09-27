@@ -1,0 +1,45 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Difficulty {
+  easy
+  medium
+  hard
+}
+
+enum Result {
+  accepted
+  partial
+}
+
+model SolvedProblem {
+  id              String     @id @default(uuid()) @db.Uuid
+  learnerId       String     @default("default") @map("learner_id")
+  slug            String
+  title           String
+  topic           String
+  difficulty      Difficulty
+  language        String
+  platform        String
+  platformRef     String?    @map("platform_ref")
+  result          Result
+  timeComplexity  String     @map("time_complexity")
+  spaceComplexity String     @map("space_complexity")
+  documentationMd String?    @map("documentation_md")
+  solvedAt        DateTime   @default(now()) @map("solved_at") @db.Timestamptz(6)
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([learnerId, slug])
+  @@index([learnerId, topic])
+  @@index([learnerId, solvedAt(sort: Desc)])
+  @@map("solved_problems")
+}
