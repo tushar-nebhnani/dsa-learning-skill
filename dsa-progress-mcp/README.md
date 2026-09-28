@@ -1,34 +1,42 @@
 # dsa-progress-mcp
 
-MCP server that stores the DSA problems a learner has solved, so the DSA tutor skill can avoid repeats and see topic coverage.
+MCP server for the DSA tutor skill. It currently exposes no tools; it only handles Google sign-in via OAuth.
 
 Stack: TypeScript, Express (Streamable HTTP, stateless), Zod, Prisma 7 + Postgres.
 
-## Tools
-
-| Tool | Purpose |
-|---|---|
-| `record_solved_problem` | Save a finished problem. Re-recording the same title updates it (`created: false`). |
-| `list_solved_problems` | Solved problems newest first, filterable by topic/language/difficulty, plus `topicCounts` across all topics. |
-| `get_solved_problem` | Full record for one problem by slug or title, including the Stage 10 documentation. |
-
 ## Setup
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create an OAuth client of type **Web application** with the authorized redirect URI `http://localhost:3333/oauth/google/callback` (i.e. `$PUBLIC_URL/oauth/google/callback`).
+2. Configure and start:
 
 ```bash
 npm install                # also runs prisma generate
-cp .env.example .env
+cp .env.example .env       # fill in GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET
 npm run db:up              # Postgres 16 via docker compose
 npm run db:migrate         # prisma migrate deploy
-npm run dev                # http://127.0.0.1:3333/mcp
+npm run dev                # http://localhost:3333/mcp
 ```
 
-Register with Claude Code:
+Register with Claude Code (no header needed; it opens the browser to sign in on first use):
 
 ```bash
-claude mcp add --transport http dsa-progress http://127.0.0.1:3333/mcp
-# with MCP_AUTH_TOKEN set:
-claude mcp add --transport http dsa-progress http://127.0.0.1:3333/mcp --header "Authorization: Bearer <token>"
+claude mcp add --transport http dsa-progress http://localhost:3333/mcp
 ```
+
+Use `localhost` rather than `127.0.0.1` in the URL so it matches `PUBLIC_URL`.
+
+## Authentication
+
+The server is its own OAuth 2.1 authorization server and uses Google only to identify the user:
+
+1. An MCP call without a token gets `401` with a `WWW-Authenticate` header pointing at `/.well-known/oauth-protected-resource/mcp`.
+2. The client reads the metadata, registers itself (`/register`, dynamic client registration) and opens `/authorize` with PKCE.
+3. `/authorize` shows the login page; **Continue with Google** goes to Google, which returns to `/oauth/google/callback`.
+4. The callback finds or creates the learner by Google account id (`sub`), then redirects to the client with a one-time code.
+5. The client exchanges the code at `/token` for an access token (1 hour) and a rotating refresh token (30 days).
+6. Every MCP request must carry a valid access token; the signed-in learner is available as `authInfo`.
+
+The SDK's `mcpAuthRouter` serves the OAuth endpoints; `src/auth/provider.ts` stores clients, codes and tokens (only SHA-256 hashes of codes and tokens are stored). Any Google account with a verified email can sign in.
 
 ## Schema changes
 

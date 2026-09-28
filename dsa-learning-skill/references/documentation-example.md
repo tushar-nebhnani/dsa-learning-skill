@@ -1,6 +1,6 @@
 # Documentation Example
 
-This is the reference format for **Stage 10: Documentation & Feedback**. Stage 11 turns this document into the revision PDF, so keep the same headings, in the same order, for every problem.
+This is the reference format for **Stage 11: Documentation & PDF Generation**. The Feedback section holds the feedback from Stage 10, and this document is turned into the revision PDF, so keep the same headings, in the same order, for every problem.
 
 Rules for filling it in:
 

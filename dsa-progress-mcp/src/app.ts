@@ -1,29 +1,21 @@
-import { timingSafeEqual } from "node:crypto";
 import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js";
+import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
+import { getOAuthProtectedResourceMetadataUrl, mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { Express, NextFunction, Request, Response } from "express";
+import type { Express, Request, Response } from "express";
+import type { GoogleSignIn } from "./auth/google.js";
+import { DsaOAuthProvider } from "./auth/provider.js";
+import { createAuthRoutes } from "./auth/routes.js";
 import type { PrismaClient } from "./db/db.js";
 import { createMcpServer } from "./server.js";
 
 export interface AppOptions {
   host?: string;
-  authToken?: string;
-}
-
-function bearerAuth(token: string) {
-  const expected = Buffer.from(`Bearer ${token}`);
-  return (req: Request, res: Response, next: NextFunction) => {
-    const given = Buffer.from(req.headers.authorization ?? "");
-    if (given.length === expected.length && timingSafeEqual(given, expected))
-      return next();
-    res
-      .status(401)
-      .json({
-        jsonrpc: "2.0",
-        error: { code: -32001, message: "Unauthorized" },
-        id: null,
-      });
-  };
+  /** Public base URL of this server, e.g. http://localhost:3333. */
+  publicUrl: string;
+  google: GoogleSignIn;
+  /** The SDK rate-limits the OAuth endpoints; tests turn that off. Defaults to true. */
+  rateLimitAuth?: boolean;
 }
 
 function methodNotAllowed(_req: Request, res: Response) {
@@ -36,11 +28,11 @@ function methodNotAllowed(_req: Request, res: Response) {
     });
 }
 
-export function createApp(
-  prisma: PrismaClient,
-  options: AppOptions = {},
-): Express {
+export function createApp(prisma: PrismaClient, options: AppOptions): Express {
   const app = createMcpExpressApp({ host: options.host ?? "127.0.0.1" });
+  const issuerUrl = new URL(options.publicUrl);
+  const mcpUrl = new URL("/mcp", issuerUrl);
+  const provider = new DsaOAuthProvider({ prisma, google: options.google, mcpUrl });
 
   app.get("/health", async (_req, res) => {
     try {
@@ -51,11 +43,35 @@ export function createApp(
     }
   });
 
-  if (options.authToken) app.use("/mcp", bearerAuth(options.authToken));
+  // OAuth metadata, dynamic client registration, /authorize, /token and /revoke.
+  app.use(
+    mcpAuthRouter({
+      provider,
+      issuerUrl,
+      resourceServerUrl: mcpUrl,
+      resourceName: "DSA Progress",
+      ...(options.rateLimitAuth === false && {
+        authorizationOptions: { rateLimit: false },
+        clientRegistrationOptions: { rateLimit: false },
+        tokenOptions: { rateLimit: false },
+        revocationOptions: { rateLimit: false },
+      }),
+    }),
+  );
+  app.use(createAuthRoutes({ prisma, google: options.google, provider }));
+
+  app.use(
+    "/mcp",
+    requireBearerAuth({
+      verifier: provider,
+      resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(mcpUrl),
+    }),
+  );
 
   // Stateless mode: a fresh server + transport per request, so no session state is kept between calls.
+  // The signed-in user is available on req.auth, which the transport passes on as authInfo.
   app.post("/mcp", async (req, res) => {
-    const server = createMcpServer(prisma);
+    const server = createMcpServer();
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });

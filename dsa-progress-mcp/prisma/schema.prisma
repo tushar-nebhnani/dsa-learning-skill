@@ -35,11 +35,97 @@ model SolvedProblem {
   spaceComplexity String     @map("space_complexity")
   documentationMd String?    @map("documentation_md")
   solvedAt        DateTime   @default(now()) @map("solved_at") @db.Timestamptz(6)
+  retryProblem    Boolean    @default(false) @map("retry_problem")
+  revisitAt       DateTime?  @map("revisit_at") @db.Timestamptz(6)
   createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@unique([learnerId, slug])
   @@index([learnerId, topic])
   @@index([learnerId, solvedAt(sort: Desc)])
+  @@index([learnerId, retryProblem, revisitAt])
   @@map("solved_problems")
+}
+
+/// A learner, identified by their Google account. SolvedProblem.learnerId holds User.id.
+model User {
+  id                String    @id @default(uuid())
+  googleSub         String    @unique @map("google_sub")
+  email             String
+  name              String?
+  avatarUrl         String?   @map("avatar_url")
+  onboardedAt       DateTime? @map("onboarded_at") @db.Timestamptz(6)
+  /// Stage 0 answers, saved so returning learners aren't asked again.
+  preferredLanguage String?   @map("preferred_language")
+  languageComfort   String?   @map("language_comfort")
+  dsaComfort        String?   @map("dsa_comfort")
+  learningGoal      String?   @map("learning_goal")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  authorizationCodes AuthorizationCode[]
+  tokens             OAuthToken[]
+
+  @@map("users")
+}
+
+/// An MCP client registered through OAuth dynamic client registration.
+model OAuthClient {
+  clientId  String   @id @map("client_id")
+  /// The full OAuthClientInformationFull returned at registration.
+  info      Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("oauth_clients")
+}
+
+/// An /authorize request waiting for the user to finish Google sign-in. The id is the Google `state`.
+model PendingAuthorization {
+  id            String   @id
+  clientId      String   @map("client_id")
+  redirectUri   String   @map("redirect_uri")
+  codeChallenge String   @map("code_challenge")
+  clientState   String?  @map("client_state")
+  scopes        String[]
+  resource      String?
+  expiresAt     DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@map("pending_authorizations")
+}
+
+/// A one-time authorization code; only its SHA-256 hash is stored.
+model AuthorizationCode {
+  codeHash      String   @id @map("code_hash")
+  clientId      String   @map("client_id")
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redirectUri   String   @map("redirect_uri")
+  codeChallenge String   @map("code_challenge")
+  scopes        String[]
+  resource      String?
+  expiresAt     DateTime @map("expires_at") @db.Timestamptz(6)
+
+  @@map("authorization_codes")
+}
+
+enum TokenKind {
+  access
+  refresh
+}
+
+/// An issued access or refresh token; only its SHA-256 hash is stored.
+model OAuthToken {
+  tokenHash String    @id @map("token_hash")
+  kind      TokenKind
+  clientId  String    @map("client_id")
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scopes    String[]
+  resource  String?
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("oauth_tokens")
 }
