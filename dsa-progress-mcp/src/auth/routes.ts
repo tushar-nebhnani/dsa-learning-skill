@@ -72,13 +72,13 @@ export function createAuthRoutes(options: {
       const identity = await google.identify(code);
       // The Google account id is the learner's identity; profile fields are refreshed on every sign-in.
       const profile = { email: identity.email, name: identity.name, avatarUrl: identity.picture };
-      const user = await prisma.user.upsert({
+      const learner = await prisma.learner.upsert({
         where: { googleSub: identity.sub },
         create: { googleSub: identity.sub, ...profile },
         update: profile,
       });
 
-      const authorizationCode = await provider.createAuthorizationCode(pending, user.id);
+      const authorizationCode = await provider.createAuthorizationCode(pending, learner.id);
       redirectToClient(res, pending.redirectUri, { code: authorizationCode, state: pending.clientState });
     } catch (err) {
       console.error("[oauth/google/callback]", err);

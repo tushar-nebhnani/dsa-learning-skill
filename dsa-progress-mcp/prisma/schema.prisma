@@ -9,6 +9,10 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────
+
 enum Difficulty {
   easy
   medium
@@ -20,54 +24,81 @@ enum Result {
   partial
 }
 
-model SolvedProblem {
-  id              String     @id @default(uuid()) @db.Uuid
-  learnerId       String     @default("default") @map("learner_id")
-  slug            String
-  title           String
-  topic           String
-  difficulty      Difficulty
-  language        String
-  platform        String
-  platformRef     String?    @map("platform_ref")
-  result          Result
-  timeComplexity  String     @map("time_complexity")
-  spaceComplexity String     @map("space_complexity")
-  documentationMd String?    @map("documentation_md")
-  solvedAt        DateTime   @default(now()) @map("solved_at") @db.Timestamptz(6)
-  retryProblem    Boolean    @default(false) @map("retry_problem")
-  revisitAt       DateTime?  @map("revisit_at") @db.Timestamptz(6)
-  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-
-  @@unique([learnerId, slug])
-  @@index([learnerId, topic])
-  @@index([learnerId, solvedAt(sort: Desc)])
-  @@index([learnerId, retryProblem, revisitAt])
-  @@map("solved_problems")
+enum ComfortLevel {
+  beginner
+  intermediate
+  advanced
 }
 
-/// A learner, identified by their Google account. SolvedProblem.learnerId holds User.id.
-model User {
-  id                String    @id @default(uuid())
-  googleSub         String    @unique @map("google_sub")
+enum LearningMode {
+  roadmap
+  topic
+}
+
+enum TokenKind {
+  access
+  refresh
+}
+
+// ─────────────────────────────────────────────
+// Learner
+// ─────────────────────────────────────────────
+
+/// A learner, identified by their Google account.
+/// "Onboarded" is not stored: a learner counts as onboarded once any preference is saved.
+model Learner {
+  id                String        @id @default(uuid()) @db.Uuid
+  googleSub         String        @unique @map("google_sub")
   email             String
   name              String?
-  avatarUrl         String?   @map("avatar_url")
-  onboardedAt       DateTime? @map("onboarded_at") @db.Timestamptz(6)
+  avatarUrl         String?       @map("avatar_url")
   /// Stage 0 answers, saved so returning learners aren't asked again.
-  preferredLanguage String?   @map("preferred_language")
-  languageComfort   String?   @map("language_comfort")
-  dsaComfort        String?   @map("dsa_comfort")
-  learningGoal      String?   @map("learning_goal")
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  preferredLanguage String?       @map("preferred_language")
+  languageComfort   ComfortLevel? @map("language_comfort")
+  dsaComfort        ComfortLevel? @map("dsa_comfort")
+  /// roadmap = follow references/roadmap.md; topic = stay on a topic the learner chose.
+  learningMode      LearningMode? @map("learning_mode")
+  /// The topic being practised now. New solved problems are filed under it.
+  currentTopic      String?       @map("current_topic")
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
+  solvedProblems     SolvedProblem[]
   authorizationCodes AuthorizationCode[]
   tokens             OAuthToken[]
 
   @@map("users")
 }
+
+/// One problem a learner has finished. Recording the same problem again updates this row.
+model SolvedProblem {
+  learnerId       String     @map("learner_id") @db.Uuid
+  learner         Learner    @relation(fields: [learnerId], references: [id], onDelete: Cascade)
+  /// Made from the title on the server (lowercase, hyphens), so small wording differences match.
+  slug            String
+  title           String
+  /// Copied from the learner's currentTopic when the row is created; never changed on update.
+  topic           String
+  difficulty      Difficulty
+  language        String
+  result          Result
+  /// Full Stage 11 documentation (Markdown), including complexity and the platform link.
+  documentationMd String     @map("documentation_md")
+  /// null = no revisit scheduled.
+  revisitAt       DateTime?  @map("revisit_at") @db.Timestamptz(6)
+  firstSolvedAt   DateTime   @default(now()) @map("first_solved_at") @db.Timestamptz(6)
+  /// Moves on every update; record_solved_problem is the only writer.
+  lastSolvedAt    DateTime   @updatedAt @map("last_solved_at") @db.Timestamptz(6)
+
+  @@id([learnerId, slug])
+  @@index([learnerId, topic])
+  @@index([learnerId, revisitAt])
+  @@map("solved_problems")
+}
+
+// ─────────────────────────────────────────────
+// OAuth
+// ─────────────────────────────────────────────
 
 /// An MCP client registered through OAuth dynamic client registration.
 model OAuthClient {
@@ -76,55 +107,57 @@ model OAuthClient {
   info      Json
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
+  pendingAuthorizations PendingAuthorization[]
+  authorizationCodes    AuthorizationCode[]
+  tokens                OAuthToken[]
+
   @@map("oauth_clients")
 }
 
 /// An /authorize request waiting for the user to finish Google sign-in. The id is the Google `state`.
 model PendingAuthorization {
-  id            String   @id
-  clientId      String   @map("client_id")
-  redirectUri   String   @map("redirect_uri")
-  codeChallenge String   @map("code_challenge")
-  clientState   String?  @map("client_state")
+  id            String      @id
+  clientId      String      @map("client_id")
+  client        OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  redirectUri   String      @map("redirect_uri")
+  codeChallenge String      @map("code_challenge")
+  clientState   String?     @map("client_state")
   scopes        String[]
   resource      String?
-  expiresAt     DateTime @map("expires_at") @db.Timestamptz(6)
+  expiresAt     DateTime    @map("expires_at") @db.Timestamptz(6)
 
   @@map("pending_authorizations")
 }
 
 /// A one-time authorization code; only its SHA-256 hash is stored.
 model AuthorizationCode {
-  codeHash      String   @id @map("code_hash")
-  clientId      String   @map("client_id")
-  userId        String   @map("user_id")
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  redirectUri   String   @map("redirect_uri")
-  codeChallenge String   @map("code_challenge")
+  codeHash      String      @id @map("code_hash")
+  clientId      String      @map("client_id")
+  client        OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  userId        String      @map("user_id") @db.Uuid
+  user          Learner     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  redirectUri   String      @map("redirect_uri")
+  codeChallenge String      @map("code_challenge")
   scopes        String[]
   resource      String?
-  expiresAt     DateTime @map("expires_at") @db.Timestamptz(6)
+  expiresAt     DateTime    @map("expires_at") @db.Timestamptz(6)
 
   @@map("authorization_codes")
 }
 
-enum TokenKind {
-  access
-  refresh
-}
-
 /// An issued access or refresh token; only its SHA-256 hash is stored.
 model OAuthToken {
-  tokenHash String    @id @map("token_hash")
+  tokenHash String      @id @map("token_hash")
   kind      TokenKind
-  clientId  String    @map("client_id")
-  userId    String    @map("user_id")
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId  String      @map("client_id")
+  client    OAuthClient @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
+  userId    String      @map("user_id") @db.Uuid
+  user      Learner     @relation(fields: [userId], references: [id], onDelete: Cascade)
   scopes    String[]
   resource  String?
-  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
-  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt DateTime    @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime?   @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([userId])
   @@map("oauth_tokens")

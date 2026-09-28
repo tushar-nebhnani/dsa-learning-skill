@@ -119,10 +119,10 @@ describe("OAuth with Google sign-in", () => {
     it("creates the learner on first sign-in and reuses them on the next", async () => {
       await signIn(baseUrl, googleUser("g-1", { name: "Old Name" }));
       await signIn(baseUrl, googleUser("g-1", { name: "New Name" }));
-      const users = await db.prisma.user.findMany();
-      assert.equal(users.length, 1);
-      assert.equal(users[0]?.googleSub, "g-1");
-      assert.equal(users[0]?.name, "New Name");
+      const learners = await db.prisma.learner.findMany();
+      assert.equal(learners.length, 1);
+      assert.equal(learners[0]?.googleSub, "g-1");
+      assert.equal(learners[0]?.name, "New Name");
     });
 
     it("redirects back with the client's state", async () => {
@@ -141,7 +141,7 @@ describe("OAuth with Google sign-in", () => {
       const code = googleCode(googleUser("g-1"));
       assert.equal((await googleCallback(baseUrl, { state, code })).status, 400);
       assert.equal((await googleCallback(baseUrl, { state, code }, "other-state")).status, 400);
-      assert.equal(await db.prisma.user.count(), 0);
+      assert.equal(await db.prisma.learner.count(), 0);
     });
 
     it("can't be replayed", async () => {

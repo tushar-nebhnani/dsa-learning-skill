@@ -41,6 +41,77 @@ describe("MCP over HTTP", () => {
     await assert.rejects(connectClient(baseUrl, "wrong-token"));
   });
 
+  it("get_learner_profile returns the signed-in learner's profile", async () => {
+    const learner = await db.prisma.learner.findUniqueOrThrow({ where: { googleSub: "alice" } });
+    await db.prisma.learner.update({
+      where: { id: learner.id },
+      data: {
+        name: "Asha",
+        preferredLanguage: "Python",
+        languageComfort: "intermediate",
+        dsaComfort: "beginner",
+        learningMode: "roadmap",
+        currentTopic: "Arrays",
+      },
+    });
+    const otherLearner = await db.prisma.learner.create({
+      data: { googleSub: "someone-else", email: "someone-else@example.com" },
+    });
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const problem = (slug: string, revisitAt: Date | null) => ({
+      learnerId: learner.id, slug, title: slug, topic: "Arrays", difficulty: "easy" as const, language: "Python",
+      result: "accepted" as const, documentationMd: `# ${slug}`, revisitAt,
+    });
+    await db.prisma.solvedProblem.createMany({
+      data: [
+        problem("two-sum", new Date(Date.now() - DAY_MS)),
+        problem("max-subarray", new Date(Date.now() - 2 * DAY_MS)),
+        problem("rotate-array", new Date(Date.now() + DAY_MS)),
+        problem("contains-duplicate", null),
+        { ...problem("other-learner", new Date(Date.now() - DAY_MS)), learnerId: otherLearner.id },
+      ],
+    });
+
+    const client = await connectClient(baseUrl, accessToken);
+    const result = await client.callTool({ name: "get_learner_profile", arguments: {} });
+    await client.close();
+
+    assert.deepEqual(result.structuredContent, {
+      name: "Asha",
+      onboarded: true,
+      totalSolved: 4,
+      revisitsDue: 2,
+      preferences: {
+        language: "Python",
+        languageComfort: "intermediate",
+        dsaComfort: "beginner",
+        learningMode: "roadmap",
+        currentTopic: "Arrays",
+      },
+    });
+  });
+
+  it("get_learner_profile reports a new learner as not onboarded", async () => {
+    const { accessToken: newToken } = await signIn(baseUrl, googleUser("newcomer", { name: "Ravi" }));
+    const client = await connectClient(baseUrl, newToken);
+    const result = await client.callTool({ name: "get_learner_profile", arguments: {} });
+    await client.close();
+
+    assert.deepEqual(result.structuredContent, {
+      name: "Ravi",
+      onboarded: false,
+      totalSolved: 0,
+      revisitsDue: 0,
+      preferences: {
+        language: null,
+        languageComfort: null,
+        dsaComfort: null,
+        learningMode: null,
+        currentTopic: null,
+      },
+    });
+  });
+
   it("returns 405 for GET /mcp", async () => {
     const res = await fetch(`${baseUrl}/mcp`, { headers: { Authorization: `Bearer ${accessToken}` } });
     assert.equal(res.status, 405);

@@ -1,6 +1,12 @@
 # dsa-progress-mcp
 
-MCP server for the DSA tutor skill. It currently exposes no tools; it only handles Google sign-in via OAuth.
+MCP server for the DSA tutor skill. Learners sign in with Google via OAuth.
+
+## Tools
+
+- `get_learner_profile`: the signed-in learner's name, whether they are onboarded (any preference saved), total problems solved, problems due for a revisit (`revisit_at` has passed), and their saved preferences (language, language/DSA comfort, learning mode, current topic).
+
+Each tool lives in its own file under `src/tools/` and is registered in `src/tools/index.ts`.
 
 Stack: TypeScript, Express (Streamable HTTP, stateless), Zod, Prisma 7 + Postgres.
 

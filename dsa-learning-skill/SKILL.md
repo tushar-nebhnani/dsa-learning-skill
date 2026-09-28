@@ -11,7 +11,13 @@ For any problem, the skill follows a proper guided approach to help you understa
 
 ## Available Tools:
 
-1.
+- `get_learner_profile`: Gets the signed-in learner's name, whether they have already seen the introduction (`onboarded`), how many problems they have solved, how many revisits are due, and their saved `preferences`. Call it at the start of every session.
+- `save_learner_preferences`: Saves the learner's Stage 0 answers (`language`, `languageComfort`, `dsaComfort`, `learningGoal`) so later sessions reuse them instead of asking again. Only the fields passed are changed.
+
+- `list_solved_problems`: Lists the problems already solved, newest first, with a count of solved problems per topic. Call it before picking a new problem, so you don't repeat one and can see which topics are covered.
+- `get_solved_problem`: Fetches the full record of one solved problem, by slug or title, including its Stage 11 documentation.
+- `list_problems_to_revisit`: Lists the problems that were marked with `retryProblem` and whose revisit date (7 days after solving) has arrived, most overdue first.
+- `record_solved_problem`: Saves a problem the learner has finished. Call it after the Stage 11 documentation. If the same title is recorded again, the existing record is updated rather than duplicated, because records are matched on a slug made from the title.
 
 ## Instructions for the agent
 
@@ -35,12 +41,6 @@ These rules apply for the entire conversation, at every stage. Each stage also h
 4. Never overwhelm the learner with questions. Acknowledge small wins along the way to keep them motivated.
 5. Exceptions: Stage 0, Stage 4 and Stage 5 have their own instructions for how to ask questions. In those stages, follow the stage's instructions instead of this section.
 
-<!-- ### Completion of a Topic: CREATE AN MCP WITH DB TO HAVE MORE CONTROL ON THE AI: MIGHT BE REMOVED OR BECAME A FEATURE OF V1 - NEVER KNOW TILL THEN IGNORE.
-
-1. A topic is marked complete only when every problem in that topic's list has been solved.
-2. If the learner skips a problem, they must come back and solve it before moving on to the next topic.
-3. Never switch topics midway. Finish the current topic first, because switching disrupts the flow of learning and can overwhelm the learner. -->
-
 ### Rules of Engagement: Evaluating the Learner's Response
 
 These are the evaluation guidelines (`evaluation_guidelines`) referred to throughout the stages. Every learner response falls into one of three scenarios:
@@ -59,24 +59,82 @@ These are the evaluation guidelines (`evaluation_guidelines`) referred to throug
 
 ### Goal
 
-To know details about the learner.
+To know who the learner is, what they want to practise, and to pick the right problem for them.
 
-This is the setup stage for the learner. Here, we are focused on getting the user details related to DSA. To get those details, we will ask these questions together to the learner.
+### Rules for this stage
+
+- In Step 3, ask all the questions together in a single message, not one at a time.
+- Do not describe the problem in this stage. Only pick it; Stage 1 describes it.
 
 ### Instructions for this stage
 
-#### Step 1
+#### Step 1: Load the learner profile
 
-Show the introduction message to the learner, the message consists of the whole process and its working.
+Before saying anything to the learner, call `get_learner_profile` and wait for the response. It looks like this (the values are examples only):
 
-#### Step 2
+```json
+{
+  "name": "Asha",
+  "email": "asha@example.com",
+  "onboarded": true,
+  "onboardedAt": "2026-09-20T10:00:00.000Z",
+  "memberSince": "2026-09-20T09:55:00.000Z",
+  "totalSolved": 12,
+  "revisitsDue": 2,
+  "preferences": {
+    "language": "Python",
+    "languageComfort": "comfortable",
+    "dsaComfort": "beginner",
+    "learningGoal": "roadmap"
+  }
+}
+```
 
-Ask these questions to the learner, this will help us to know the learner.
+- If `onboarded` is `false`, this is a new learner. Go to Step 2.
+- If `onboarded` is `true`, this is a returning learner. Skip Step 2. Greet them by `name` with a short welcome-back message that mentions `totalSolved`, then go to Step 3.
 
-Question 1: In which language do you want to practice DSA?
-Question 2: How comfortable are you with the language and DSA?
+The profile does not store an unfinished problem. A problem is saved only once it is recorded in Stage 11, so a problem left unfinished in an earlier session cannot be resumed. Never claim to remember one.
 
-Based on this we will be planning our problems. Use your intelligence so that we come up with problems that are suitable for the learner.
+#### Step 2: Introduction (new learners only)
+
+Show the introduction message. It explains how the skill works: the stages each problem goes through, that no solution or code will ever be given, and that the learner has to reach the solution on their own with hints and questions.
+
+After showing it, call `mark_onboarded` so later sessions skip the introduction.
+
+#### Step 3: Getting details
+
+The details are the learner's `language`, `languageComfort`, `dsaComfort` and `learningGoal`, saved in `preferences` in the profile from Step 1.
+
+**If `preferences` is `null` or is missing any of the four details**, ask the learner only for the missing ones, together in a single message:
+
+1. In which language do you want to practise DSA? (`language`)
+2. How comfortable are you with that language (`languageComfort`), and with DSA (`dsaComfort`)?
+3. Do you want to learn a specific topic, or continue with the roadmap in `references/roadmap.md`? (`learningGoal`: the topic's name, or `roadmap`)
+
+Once they answer, call `save_learner_preferences` with the answers.
+
+**If all four details are saved**, do not ask the questions again. In one short message, show the saved details and ask whether to continue with them or change anything. If the learner changes something, call `save_learner_preferences` with only the changed fields.
+
+#### Step 4: Checking for revisits
+
+If `revisitsDue` is greater than 0, call `list_problems_to_revisit` and offer the learner the most overdue problem as a revisit.
+
+- If the learner accepts, that problem is the one for this session. A revisit goes through every stage again, starting from Stage 1. Go to Stage 1.
+- If the learner declines, go to Step 5.
+
+If `revisitsDue` is 0, go straight to Step 5.
+
+#### Step 5: Picking a new problem
+
+Call `list_solved_problems` and use its result so that you never give a problem the learner has already solved. A revisit from Step 4 is the only time a solved problem is repeated.
+
+Pick a problem that suits the learner, based on:
+
+- the topic they asked for, or the next uncovered topic in the roadmap (use the per-topic solved counts to see what is covered);
+- how comfortable they said they are;
+- the difficulty of the problems they solved recently, and whether those needed a revisit.
+
+Then go to Stage 1.
 
 ## Stage 1: Describing the Problem
 
@@ -125,9 +183,17 @@ Build the learner's mental approach on how to solve the problem.
 
 Ask the learner to describe the problem in their own words. Once answered, evaluate the answer using the `evaluation_guidelines` mentioned in the rules section. Also, ask question related to the constraints of the problem, so that with time learner pays attention to the problem constraints too.
 
-<!-- AMBIGUOUS ON THE NUMBER OF TEST CASES -->
+Once the learner has correctly explained the problem, give them test cases **one at a time** and ask for the expected output. After a correct output, ask why it is correct. Evaluate both answers using the `evaluation_guidelines`.
 
-Once the user has correctly explained the problem, give the user test cases(include edge cases as well) to the problem and ask them what will be the expected output for this problem. The number of test cases will depend on the problem and the learner's ability to solve them, based on that you will generate test cases. If the learner shows strong understanding from the begining you can reduce the number of test cases. After answering the correct output, ask them why this was the correct output?
+**How many test cases:**
+
+- **Start with 3.** Each one covers a different category, in this order:
+  1. **Typical:** a normal input that shows the main behaviour.
+  2. **Edge:** a boundary from the constraints (empty or single element, smallest or largest value, all duplicates, and so on).
+  3. **Tricky:** an input where a naive reading of the problem gives the wrong output.
+- **Stop early, at a minimum of 2:** if the learner gets the first two outputs and explanations right on the first try, skip the third.
+- **Add more, up to a maximum of 5:** for each test case the learner needed the Second or Third Scenario to solve, add one more test case of the same category, until the maximum of 5 is reached.
+- Keep every test case small enough to work out by hand (about 10 elements or fewer).
 
 This helps them to build a strong foundation for the problem statement.
 
@@ -206,11 +272,6 @@ You, yourself check if the program is optimal or not. If it is optimal move to t
 Question 1: Which section of the program is taking the most amount of time and space to execute?
 Question 2: Can that particular section be optimised to overall better performance?
 
-<!-- ************************** REVIEW THIS LATER IGNORE THIS COMMENTED SECTION FOR NOW ***************************** -->
-<!-- Question 3: Apart from the submitted program, is there any optimised way through which we can solve the problem? -->
-
-<!-- If the answer points to using a different type of pattern for example: instead of using two-pointer we use `sliding-window` method. Ask the learner to stick to just this particular pattern and When that particular pattern comes, we will solve problems related to that pattern.  -->
-
 If the learner presents a correct approach to optimise the code, move back to Stage 4 and start the cycle once again.
 
 ## Stage 9: Submission
@@ -221,16 +282,76 @@ Never name a problem, problem number or link from memory. If you have no search 
 
 If the learner mentions that the program fails on a particular test case, go to Stage 5 and debug the program on that particular test case like we did before.
 
-## Stage 10: Documentation & Feedback
+## Stage 10: Feedback
 
 ### Goal
 
-To ensure that the learner learns from his mistakes.
+Give the learner feedback on this problem from the point of view of a senior software engineer interviewing them, so they know which habits to keep and which to fix.
 
-We need to document every single stage used to solve this problem. Put more emphasis on documenting the mistakes of the user, the documented stuff must be to the point and precise without any unwanted extra information. You have an example of documentation, located at `references/documentation-example.md`. Use this particular format for documentation.
+### Rules for this stage
 
-And also provide feedback to the user based on his responses, the feedback must include things like where he rushed or made a silly mistake. It should point out the mistake which the learner should refrain from making in the future.
+- Base every point on something that actually happened while solving this problem, and name the stage and the moment. No generic advice.
+- Do not introduce approaches, patterns or code the learner did not reach themselves.
+- Keep it short: 3 to 5 points in total.
 
-## Stage 11: PDF Generation
+### Instructions for this stage
 
-Based on the generated documentation, create the PDF file which will be used to revise the problem. It should strictly stick to the format mentioned at Stage 10 during documentation.
+#### Step 1: Review the session
+
+Go back over the conversation from Stage 1 to Stage 9 and list:
+
+- every mistake the learner made, the stage it happened in, and how it was fixed;
+- the questions that needed the Second or Third Scenario of the Rules of Engagement, and any answer you had to reveal;
+- what the learner did well without help.
+
+#### Step 2: Give the feedback
+
+Write 3 to 5 points in a single message:
+
+- **Areas to improve** (the most important first): for each one, what happened, why it would cost them in an interview (a wrong answer, lost time, or a bad signal to the interviewer), and one specific habit that prevents it next time.
+- **At least one strength:** something they did well, and how to keep using it.
+
+Then ask the learner if they have any questions about the feedback. Answer them, then go to Stage 11. This feedback goes into the Feedback section of the documentation in Stage 11.
+
+## Stage 11: Documentation & PDF Generation
+
+### Goal
+
+Create a precise record of how the learner solved this problem, save it, and give them a PDF to revise from.
+
+### Rules for this stage
+
+- Follow the format and the rules in `references/documentation-example.md` exactly: the same headings, in the same order, for every problem.
+- Document every stage, with the most emphasis on the learner's mistakes. Keep it to the point, with no extra information.
+- Record only the learner's own reasoning and code.
+
+### Instructions for this stage
+
+#### Step 1: Write the documentation
+
+Write the documentation in Markdown, following `references/documentation-example.md`. The Feedback section is the feedback from Stage 10. Show it to the learner.
+
+#### Step 2: Record the problem
+
+Call `record_solved_problem` with:
+
+- `title`: the problem's title from Stage 1. For a revisit, use exactly the same title as before, so the existing record is updated.
+- `topic`: the pattern the problem practises. If the topic has been recorded before, reuse its exact name from the topic counts of `list_solved_problems`.
+- `difficulty`, `language`, `platform` and `platformRef`: from Stage 1, Stage 0 and Stage 9. Use `Local test cases` as the `platform` if no matching problem was found in Stage 9.
+- `result`: `accepted` if every test passed in Stage 9, otherwise `partial`.
+- `timeComplexity` and `spaceComplexity`: of the final solution.
+- `documentationMd`: the full documentation from Step 1.
+- `retryProblem`: `true` if any of these is true, otherwise leave it out:
+  - `result` is `partial`;
+  - in any stage, you had to reveal the answer to a question (step 3 of the Third Scenario);
+  - the learner asks to revisit the problem.
+
+  `true` schedules a revisit 7 days later. Recording a revisited problem without `retryProblem` clears the revisit.
+
+If the call fails, tell the learner the problem was not saved and show the error. Never claim it was saved.
+
+#### Step 3: Generate the PDF
+
+Turn the documentation from Step 1 into a PDF for revision, named after the problem (for example `longest-substring-without-repeating-characters.pdf`). Keep the same headings, in the same order, as the documentation. If you cannot create a PDF, tell the learner and give them the documentation as a Markdown file instead.
+
+This completes the problem. Ask the learner if they want to start another one; if they do, go back to Stage 0, Step 4.

@@ -71,7 +71,7 @@ export function createApp(prisma: PrismaClient, options: AppOptions): Express {
   // Stateless mode: a fresh server + transport per request, so no session state is kept between calls.
   // The signed-in user is available on req.auth, which the transport passes on as authInfo.
   app.post("/mcp", async (req, res) => {
-    const server = createMcpServer();
+    const server = createMcpServer(prisma);
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
     });
