@@ -59,7 +59,7 @@ The two parts live in separate folders because they ship to different places: th
 claude.ai cannot reach `localhost`, so the server needs a public HTTPS URL.
 
 1. Create a hosted Postgres database and run `npm run db:migrate` against it.
-2. Deploy `dsa-progress-mcp/` to a Node host (`npm run build`, then `npm start`) with `HOST=0.0.0.0`, `TRUST_PROXY=1`, `PUBLIC_URL=https://<your-domain>` and the other variables from its README.
+2. Deploy `dsa-progress-mcp/` to a Node host (`npm run build`, then `npm start`) with `HOST=0.0.0.0`, `TRUST_PROXY=1`, `KEEP_ALIVE=true` (on a free plan), `PUBLIC_URL=https://<your-domain>` and the other variables from its README.
 3. Add `https://<your-domain>/oauth/google/callback` as a redirect URI on the Google OAuth client.
 4. In claude.ai, open **Settings → Connectors → Add custom connector** and enter `https://<your-domain>/mcp`.
 5. Zip the skill folder and upload it under **Settings → Capabilities → Skills**:

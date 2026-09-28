@@ -9,6 +9,8 @@ const envSchema = z
     PUBLIC_URL: z.string().url().optional(),
     /** Number of reverse proxies in front of the server; 1 on Render. */
     TRUST_PROXY: z.coerce.number().int().min(0).default(0),
+    /** Ping $PUBLIC_URL/ping every 1–14 minutes so free hosts don't sleep the server. */
+    KEEP_ALIVE: z.stringbool().default(false),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
   })

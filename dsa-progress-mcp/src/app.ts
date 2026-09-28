@@ -41,6 +41,11 @@ export function createApp(prisma: PrismaClient, options: AppOptions): Express {
   const mcpUrl = new URL("/mcp", issuerUrl);
   const provider = new DsaOAuthProvider({ prisma, google: options.google, mcpUrl });
 
+  // Liveness only, without touching the database, so keep-alive pings don't keep Neon's compute awake.
+  app.get("/ping", (_req, res) => {
+    res.type("text/plain").send("ok");
+  });
+
   app.get("/health", async (_req, res) => {
     try {
       await prisma.$queryRaw`SELECT 1`;

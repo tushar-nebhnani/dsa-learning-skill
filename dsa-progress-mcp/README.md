@@ -50,10 +50,11 @@ Use `localhost` rather than `127.0.0.1` in the URL so it matches `PUBLIC_URL`.
 | `PORT` | no | `3333` | Port to listen on |
 | `PUBLIC_URL` | no | `http://localhost:$PORT` | OAuth issuer and base of `/mcp` and the Google redirect URI |
 | `TRUST_PROXY` | no | `0` | Reverse proxies in front of the server (`1` on Render), so the OAuth rate limits see each client's IP |
+| `KEEP_ALIVE` | no | `false` | When `true`, pings `$PUBLIC_URL/ping` every 1–14 minutes (random) so Render's free plan doesn't sleep the server |
 | `GOOGLE_CLIENT_ID` | yes | | Google OAuth client |
 | `GOOGLE_CLIENT_SECRET` | yes | | Its secret |
 
-`GET /health` checks the database connection.
+`GET /health` checks the database connection. `GET /ping` answers without touching the database; it is what the keep-alive calls, so the pings don't keep Neon's compute from suspending.
 
 ## Authentication
 
