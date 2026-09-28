@@ -1,22 +1,9 @@
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
 import type { PrismaClient } from "../db/db.js";
-import { ComfortLevel, LearningMode } from "../generated/prisma/enums.js";
-import { learnerId } from "./learner-id.js";
-
-const learnerProfileSchema = {
-  name: z.string().nullable(),
-  onboarded: z.boolean(),
-  totalSolved: z.number().int(),
-  revisitsDue: z.number().int(),
-  preferences: z.object({
-    language: z.string().nullable(),
-    languageComfort: z.enum(ComfortLevel).nullable(),
-    dsaComfort: z.enum(ComfortLevel).nullable(),
-    learningMode: z.enum(LearningMode).nullable(),
-    currentTopic: z.string().nullable(),
-  }),
-};
+import { withToolErrors } from "../utils/tool-error.js";
+import { findLearner, learnerPreferences } from "./learner-id.js";
+import { learnerProfileSchema } from "./schema.js";
 
 export function registerGetLearnerProfile(
   server: McpServer,
@@ -28,51 +15,33 @@ export function registerGetLearnerProfile(
       title: "Get learner profile",
       description:
         "Returns the signed-in learner's profile. Call it at the start of every session, before saying anything to the learner. " +
-        "Fields: name; onboarded (true once any preference has been saved); totalSolved; " +
+        "Fields: name; onboarded (true once every preference has been saved with save_learner_preferences); totalSolved; " +
         "revisitsDue (solved problems whose revisit date has arrived); and preferences " +
-        "(language, languageComfort, dsaComfort, learningMode, currentTopic), where any preference not saved yet is null.",
+        "(preferredLanguage, languageComfort, dsaComfort, learningMode, currentTopic), where any preference not saved yet is null. " +
+        "Takes no input.",
       outputSchema: learnerProfileSchema,
-      annotations: { readOnlyHint: true },
+      annotations: { readOnlyHint: true, openWorldHint: false },
     },
-    async ({ authInfo }) => {
-      const id = learnerId(authInfo);
-      const learner = await prisma.learner.findUnique({ where: { id } });
-      if (!learner) {
-        return {
-          isError: true,
-          content: [
-            {
-              type: "text",
-              text: "No learner account was found for this sign-in. Sign in again.",
-            },
-          ],
-        };
-      }
+    withToolErrors("get_learner_profile", async ({ authInfo }: { authInfo?: AuthInfo }) => {
+      const learner = await findLearner(prisma, authInfo);
       const [totalSolved, revisitsDue] = await Promise.all([
-        prisma.solvedProblem.count({ where: { learnerId: id } }),
+        prisma.solvedProblem.count({ where: { learnerId: learner.id } }),
         prisma.solvedProblem.count({
-          where: { learnerId: id, revisitAt: { lte: new Date() } },
+          where: { learnerId: learner.id, revisit: true, revisitAt: { lte: new Date() } },
         }),
       ]);
 
-      const preferences = {
-        language: learner.preferredLanguage,
-        languageComfort: learner.languageComfort,
-        dsaComfort: learner.dsaComfort,
-        learningMode: learner.learningMode,
-        currentTopic: learner.currentTopic,
-      };
       const profile = {
         name: learner.name,
-        onboarded: Object.values(preferences).some((value) => value !== null),
+        onboarded: learner.onboarded,
         totalSolved,
         revisitsDue,
-        preferences,
+        preferences: learnerPreferences(learner),
       };
       return {
         content: [{ type: "text", text: JSON.stringify(profile, null, 2) }],
         structuredContent: profile,
       };
-    },
+    }),
   );
 }

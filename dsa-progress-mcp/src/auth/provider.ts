@@ -45,7 +45,7 @@ class PrismaClientsStore implements OAuthRegisteredClientsStore {
 
   async getClient(clientId: string): Promise<OAuthClientInformationFull | undefined> {
     const row = await this.prisma.oAuthClient.findUnique({ where: { clientId } });
-    return (row?.info as OAuthClientInformationFull | undefined) ?? undefined;
+    return row?.info as OAuthClientInformationFull | undefined;
   }
 
   async registerClient(client: OAuthClientInformationFull): Promise<OAuthClientInformationFull> {
