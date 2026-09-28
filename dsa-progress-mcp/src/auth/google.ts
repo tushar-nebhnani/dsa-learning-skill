@@ -1,4 +1,5 @@
 import { OAuth2Client } from "google-auth-library";
+import { ForbiddenError, UpstreamError } from "../utils/errors.js";
 
 /** The Google account that signed in. `sub` is Google's stable user id. */
 export interface GoogleIdentity {
@@ -31,11 +32,13 @@ export function createGoogleSignIn(options: {
       }),
     identify: async (code) => {
       const { tokens } = await client.getToken(code);
-      if (!tokens.id_token) throw new Error("Google did not return an ID token");
+      if (!tokens.id_token) throw new UpstreamError("Google did not return an ID token. Please try again.");
       const ticket = await client.verifyIdToken({ idToken: tokens.id_token, audience: options.clientId });
       const payload = ticket.getPayload();
-      if (!payload?.sub || !payload.email) throw new Error("Google ID token is missing sub or email");
-      if (!payload.email_verified) throw new Error("Google account email is not verified");
+      if (!payload?.sub || !payload.email) throw new UpstreamError("Google did not share your account id or email. Please try again.");
+      if (!payload.email_verified) {
+        throw new ForbiddenError("Your Google account's email isn't verified. Verify it with Google, then sign in again.");
+      }
       return {
         sub: payload.sub,
         email: payload.email,

@@ -2,11 +2,12 @@ import { createMcpExpressApp } from "@modelcontextprotocol/sdk/server/express.js
 import { requireBearerAuth } from "@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js";
 import { getOAuthProtectedResourceMetadataUrl, mcpAuthRouter } from "@modelcontextprotocol/sdk/server/auth/router.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { Express, Request, Response } from "express";
+import type { Express, NextFunction, Request, Response } from "express";
 import type { GoogleSignIn } from "./auth/google.js";
 import { DsaOAuthProvider } from "./auth/provider.js";
 import { createAuthRoutes } from "./auth/routes.js";
 import type { PrismaClient } from "./db/db.js";
+import { type AppError, handleError, MethodNotAllowedError, ServiceUnavailableError } from "./utils/errors.js";
 import { createMcpServer } from "./server.js";
 
 export interface AppOptions {
@@ -18,14 +19,17 @@ export interface AppOptions {
   rateLimitAuth?: boolean;
 }
 
+/** JSON-RPC error body for /mcp; `data` carries the app error code and HTTP status. */
+function sendJsonRpcError(res: Response, error: AppError) {
+  res.status(error.status).json({
+    jsonrpc: "2.0",
+    error: { code: error.status >= 500 ? -32603 : -32000, message: error.message, data: error.toJSON() },
+    id: null,
+  });
+}
+
 function methodNotAllowed(_req: Request, res: Response) {
-  res
-    .status(405)
-    .json({
-      jsonrpc: "2.0",
-      error: { code: -32000, message: "Method not allowed." },
-      id: null,
-    });
+  sendJsonRpcError(res, new MethodNotAllowedError("Only POST is supported on /mcp."));
 }
 
 export function createApp(prisma: PrismaClient, options: AppOptions): Express {
@@ -38,8 +42,9 @@ export function createApp(prisma: PrismaClient, options: AppOptions): Express {
     try {
       await prisma.$queryRaw`SELECT 1`;
       res.json({ status: "ok" });
-    } catch {
-      res.status(503).json({ status: "db_unavailable" });
+    } catch (err) {
+      const error = handleError("health", new ServiceUnavailableError("The database is unreachable.", { cause: err }));
+      res.status(error.status).json({ status: "db_unavailable", error: error.toJSON() });
     }
   });
 
@@ -83,20 +88,20 @@ export function createApp(prisma: PrismaClient, options: AppOptions): Express {
       await server.connect(transport);
       await transport.handleRequest(req, res, req.body);
     } catch (err) {
-      console.error("[mcp]", err);
-      if (!res.headersSent) {
-        res
-          .status(500)
-          .json({
-            jsonrpc: "2.0",
-            error: { code: -32603, message: "Internal server error" },
-            id: null,
-          });
-      }
+      const error = handleError("mcp", err);
+      if (!res.headersSent) sendJsonRpcError(res, error);
     }
   });
   app.get("/mcp", methodNotAllowed);
   app.delete("/mcp", methodNotAllowed);
+
+  // Last resort for anything a route didn't handle itself, e.g. a malformed JSON body.
+  app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) return next(err);
+    const error = handleError(`${req.method} ${req.path}`, err);
+    if (req.path.startsWith("/mcp")) sendJsonRpcError(res, error);
+    else res.status(error.status).json({ error: error.toJSON() });
+  });
 
   return app;
 }

@@ -115,6 +115,20 @@ describe("MCP over HTTP", () => {
   it("returns 405 for GET /mcp", async () => {
     const res = await fetch(`${baseUrl}/mcp`, { headers: { Authorization: `Bearer ${accessToken}` } });
     assert.equal(res.status, 405);
+    const body = (await res.json()) as { error: { data: { code: string } } };
+    assert.equal(body.error.data.code, "method_not_allowed");
+  });
+
+  it("returns a 400 JSON-RPC error for a malformed body", async () => {
+    const res = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: "{not json",
+    });
+    assert.equal(res.status, 400);
+    const body = (await res.json()) as { jsonrpc: string; error: { data: { code: string } } };
+    assert.equal(body.jsonrpc, "2.0");
+    assert.equal(body.error.data.code, "bad_request");
   });
 
   it("reports health when the database is reachable", async () => {

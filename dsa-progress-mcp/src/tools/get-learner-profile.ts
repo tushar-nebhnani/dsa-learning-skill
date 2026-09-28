@@ -8,7 +8,6 @@ const learnerProfileSchema = {
   name: z.string().nullable(),
   onboarded: z.boolean(),
   totalSolved: z.number().int(),
-  /** Problems whose revisit date has arrived. */
   revisitsDue: z.number().int(),
   preferences: z.object({
     language: z.string().nullable(),
@@ -19,24 +18,41 @@ const learnerProfileSchema = {
   }),
 };
 
-export function registerGetLearnerProfile(server: McpServer, prisma: PrismaClient): void {
+export function registerGetLearnerProfile(
+  server: McpServer,
+  prisma: PrismaClient,
+): void {
   server.registerTool(
     "get_learner_profile",
     {
       title: "Get learner profile",
       description:
-        "Returns the signed-in learner's name, whether they have finished Stage 0 setup, how many problems they have solved, " +
-        "how many problems are due for a revisit, and their saved preferences (language, comfort levels, learning mode, current topic).",
+        "Returns the signed-in learner's profile. Call it at the start of every session, before saying anything to the learner. " +
+        "Fields: name; onboarded (true once any preference has been saved); totalSolved; " +
+        "revisitsDue (solved problems whose revisit date has arrived); and preferences " +
+        "(language, languageComfort, dsaComfort, learningMode, currentTopic), where any preference not saved yet is null.",
       outputSchema: learnerProfileSchema,
       annotations: { readOnlyHint: true },
     },
     async ({ authInfo }) => {
       const id = learnerId(authInfo);
-      const [learner, totalSolved, revisitsDue] = await Promise.all([
-        prisma.learner.findUniqueOrThrow({ where: { id } }),
+      const learner = await prisma.learner.findUnique({ where: { id } });
+      if (!learner) {
+        return {
+          isError: true,
+          content: [
+            {
+              type: "text",
+              text: "No learner account was found for this sign-in. Sign in again.",
+            },
+          ],
+        };
+      }
+      const [totalSolved, revisitsDue] = await Promise.all([
         prisma.solvedProblem.count({ where: { learnerId: id } }),
-        // A null revisitAt means no revisit is scheduled, and never matches `lte`.
-        prisma.solvedProblem.count({ where: { learnerId: id, revisitAt: { lte: new Date() } } }),
+        prisma.solvedProblem.count({
+          where: { learnerId: id, revisitAt: { lte: new Date() } },
+        }),
       ]);
 
       const preferences = {
@@ -48,7 +64,6 @@ export function registerGetLearnerProfile(server: McpServer, prisma: PrismaClien
       };
       const profile = {
         name: learner.name,
-        // A learner counts as onboarded once any preference is saved.
         onboarded: Object.values(preferences).some((value) => value !== null),
         totalSolved,
         revisitsDue,
