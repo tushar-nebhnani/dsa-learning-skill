@@ -8,6 +8,7 @@ const prisma = createPrisma(config.DATABASE_URL);
 const app = createApp(prisma, {
   host: config.HOST,
   publicUrl: config.PUBLIC_URL,
+  trustProxy: config.TRUST_PROXY,
   google: createGoogleSignIn({
     clientId: config.GOOGLE_CLIENT_ID,
     clientSecret: config.GOOGLE_CLIENT_SECRET,

@@ -17,6 +17,8 @@ export interface AppOptions {
   google: GoogleSignIn;
   /** The SDK rate-limits the OAuth endpoints; tests turn that off. Defaults to true. */
   rateLimitAuth?: boolean;
+  /** Reverse proxies in front of the server (e.g. 1 on Render), so rate limits see the client's IP. Defaults to 0. */
+  trustProxy?: number;
 }
 
 /** JSON-RPC error body for /mcp; `data` carries the app error code and HTTP status. */
@@ -34,6 +36,7 @@ function methodNotAllowed(_req: Request, res: Response) {
 
 export function createApp(prisma: PrismaClient, options: AppOptions): Express {
   const app = createMcpExpressApp({ host: options.host ?? "127.0.0.1" });
+  if (options.trustProxy) app.set("trust proxy", options.trustProxy);
   const issuerUrl = new URL(options.publicUrl);
   const mcpUrl = new URL("/mcp", issuerUrl);
   const provider = new DsaOAuthProvider({ prisma, google: options.google, mcpUrl });

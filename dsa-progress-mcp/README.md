@@ -49,6 +49,7 @@ Use `localhost` rather than `127.0.0.1` in the URL so it matches `PUBLIC_URL`.
 | `HOST` | no | `127.0.0.1` | Interface to bind to |
 | `PORT` | no | `3333` | Port to listen on |
 | `PUBLIC_URL` | no | `http://localhost:$PORT` | OAuth issuer and base of `/mcp` and the Google redirect URI |
+| `TRUST_PROXY` | no | `0` | Reverse proxies in front of the server (`1` on Render), so the OAuth rate limits see each client's IP |
 | `GOOGLE_CLIENT_ID` | yes | | Google OAuth client |
 | `GOOGLE_CLIENT_SECRET` | yes | | Its secret |
 

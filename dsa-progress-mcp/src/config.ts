@@ -7,6 +7,8 @@ const envSchema = z
     PORT: z.coerce.number().int().positive().default(3333),
     /** Public base URL of this server; the OAuth issuer and the base for /mcp and the Google callback. */
     PUBLIC_URL: z.string().url().optional(),
+    /** Number of reverse proxies in front of the server; 1 on Render. */
+    TRUST_PROXY: z.coerce.number().int().min(0).default(0),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
   })
