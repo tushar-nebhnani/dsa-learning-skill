@@ -11,13 +11,15 @@ For any problem, the skill follows a proper guided approach to help you understa
 
 ## Available Tools:
 
-- `get_learner_profile`: Gets the signed-in learner's name, whether they have already seen the introduction (`onboarded`), how many problems they have solved, how many revisits are due, and their saved `preferences`. Call it at the start of every session.
-- `save_learner_preferences`: Saves the learner's Stage 0 answers (`language`, `languageComfort`, `dsaComfort`, `learningGoal`) so later sessions reuse them instead of asking again. Only the fields passed are changed.
+- `get_learner_profile`: Gets the signed-in learner's `name`, whether they are `onboarded`, how many problems they have solved (`totalSolved`), how many revisits are due (`revisitsDue`), and their saved `preferences` (`language`, `languageComfort`, `dsaComfort`, `learningMode`, `currentTopic`; any preference not saved yet is `null`). Call it at the start of every session. Takes no input.
+- `save_learner_preferences`: Saves the learner's preferences (`preferredLanguage`, `languageComfort`, `dsaComfort`, `learningMode`, `currentTopic`) so later sessions reuse them instead of asking again. The learner is marked `onboarded` once all five are saved (across one or more calls), and stays onboarded after that. Only the fields passed are changed; pass at least one. Passing `null` for a field clears it.
 
-- `list_solved_problems`: Lists the problems already solved, newest first, with a count of solved problems per topic. Call it before picking a new problem, so you don't repeat one and can see which topics are covered.
-- `get_solved_problem`: Fetches the full record of one solved problem, by slug or title, including its Stage 11 documentation.
-- `list_problems_to_revisit`: Lists the problems that were marked with `retryProblem` and whose revisit date (7 days after solving) has arrived, most overdue first.
-- `record_solved_problem`: Saves a problem the learner has finished. Call it after the Stage 11 documentation. If the same title is recorded again, the existing record is updated rather than duplicated, because records are matched on a slug made from the title.
+<!-- Might need to change this: After testing the skill -->
+
+- `list_solved_problems`: Lists the problems already solved in the learner's `currentTopic`, newest first, plus `solvedInOtherTopics` (every problem filed under a different topic). Call it before picking a new problem, so you never give a problem from either list again. Takes no input; it fails if no `currentTopic` is saved.
+
+- `list_problems_to_revisit`: Lists every problem marked for revisit, across all topics, earliest revisit date first. Each has `due: true` once its revisit date (7 days after it was recorded) has arrived; problems not yet due are included with `due: false`. Takes no input.
+- `record_solved_problem`: Saves a problem the learner has finished, under their `currentTopic`. Call it after the Stage 11 documentation. If the same title is recorded again, the existing record is updated rather than duplicated (it keeps its original topic), because records are matched on a slug made from the title.
 
 ## Instructions for the agent
 
@@ -31,7 +33,6 @@ These rules apply for the entire conversation, at every stage. Each stage also h
 4. Evaluate every learner response using the Rules of Engagement below.
 5. Do not move on to the next question or the next stage until the learner has given a correct response to the current one.
 6. Before moving to the next stage, check whether any question for the current stage is still unanswered. If there is one, ask it first.
-7. You will ignore all the comments present in the file.
 
 ### Asking Questions to the Learner
 
@@ -53,7 +54,7 @@ These are the evaluation guidelines (`evaluation_guidelines`) referred to throug
 
 1. Break the question or concept into a smaller, more specific sub-question that narrows the space of possible answers.
 2. If the learner answers the narrower question correctly, build back up toward the original question step by step, by asking smaller questions that eventually help us solve the original question.
-3. If the learner is still wrong after **two narrowing attempts**, give the correct answer directly, explain the reasoning behind it in simple terms, and confirm the learner understands it before moving on.
+3. If the learner is still wrong after **two narrowing attempts**, give the correct answer directly, explain the reasoning behind it in simple terms, and confirm the learner understands it before moving on. For this case, make the revisit as true for the particular problem, this will help the learner to go through this problem again after 7 days.
 
 ## Stage 0: The Setup
 
@@ -74,18 +75,16 @@ Before saying anything to the learner, call `get_learner_profile` and wait for t
 
 ```json
 {
-  "name": "Asha",
-  "email": "asha@example.com",
+  "name": "Janhvi",
   "onboarded": true,
-  "onboardedAt": "2026-09-20T10:00:00.000Z",
-  "memberSince": "2026-09-20T09:55:00.000Z",
   "totalSolved": 12,
   "revisitsDue": 2,
   "preferences": {
     "language": "Python",
-    "languageComfort": "comfortable",
+    "languageComfort": "intermediate",
     "dsaComfort": "beginner",
-    "learningGoal": "roadmap"
+    "learningMode": "roadmap",
+    "currentTopic": "Sliding Window"
   }
 }
 ```
@@ -99,25 +98,28 @@ The profile does not store an unfinished problem. A problem is saved only once i
 
 Show the introduction message. It explains how the skill works: the stages each problem goes through, that no solution or code will ever be given, and that the learner has to reach the solution on their own with hints and questions.
 
-After showing it, call `mark_onboarded` so later sessions skip the introduction.
+There is no separate call to mark the learner as onboarded. `save_learner_preferences` marks them onboarded once all five details in Step 3 are saved, so later sessions skip the introduction. If any detail is still missing at the end of the session, the introduction is shown again next time.
 
 #### Step 3: Getting details
 
-The details are the learner's `language`, `languageComfort`, `dsaComfort` and `learningGoal`, saved in `preferences` in the profile from Step 1.
+The details are the learner's `language`, `languageComfort`, `dsaComfort`, `learningMode` and `currentTopic`, saved in `preferences` in the profile from Step 1.
 
-**If `preferences` is `null` or is missing any of the four details**, ask the learner only for the missing ones, together in a single message:
+**If any of the five details is `null`**, ask the learner only for the missing ones, together in a single message:
 
 1. In which language do you want to practise DSA? (`language`)
-2. How comfortable are you with that language (`languageComfort`), and with DSA (`dsaComfort`)?
-3. Do you want to learn a specific topic, or continue with the roadmap in `references/roadmap.md`? (`learningGoal`: the topic's name, or `roadmap`)
+2. How comfortable are you with that language (`languageComfort`), and with DSA (`dsaComfort`)? Each is one of `beginner`, `intermediate` or `advanced`.
 
-Once they answer, call `save_learner_preferences` with the answers.
+3. Do you want to learn a specific topic, or follow the roadmap in `references/roadmap.md`? (`learningMode`: `topic` or `roadmap`; for `topic`, also ask which topic)
 
-**If all four details are saved**, do not ask the questions again. In one short message, show the saved details and ask whether to continue with them or change anything. If the learner changes something, call `save_learner_preferences` with only the changed fields.
+Once they answer, call `save_learner_preferences` with the answers. Note that the language is saved as `preferredLanguage`, although the profile returns it as `language`. Always save a `currentTopic`: the topic the learner chose, or, in `roadmap` mode, the first topic in `references/roadmap.md` they have not covered yet. `list_solved_problems` and `record_solved_problem` both fail without one, don't miss this in any scenario.
+
+**If all five details are saved**, do not ask the questions again. In one short message, show the saved details and ask whether to continue with them or change anything. If the learner changes something, call `save_learner_preferences` with only the changed fields. If the learner wants a preference removed, pass `null` for it, but never clear `currentTopic`: a new value must replace it.
+
+Keep the language and topic names short (at most 200 characters); the server rejects anything longer. For new learners, skip step 4, directly move to step 5.
 
 #### Step 4: Checking for revisits
 
-If `revisitsDue` is greater than 0, call `list_problems_to_revisit` and offer the learner the most overdue problem as a revisit.
+If `revisitsDue` is greater than 0, call `list_problems_to_revisit` and offer the learner the first problem with `due: true` (the most overdue) as a revisit. Ignore problems with `due: false`. A revisit may belong to a topic other than `currentTopic`; that is fine, and there is no need to change `currentTopic` for it.
 
 - If the learner accepts, that problem is the one for this session. A revisit goes through every stage again, starting from Stage 1. Go to Stage 1.
 - If the learner declines, go to Step 5.
@@ -126,13 +128,14 @@ If `revisitsDue` is 0, go straight to Step 5.
 
 #### Step 5: Picking a new problem
 
-Call `list_solved_problems` and use its result so that you never give a problem the learner has already solved. A revisit from Step 4 is the only time a solved problem is repeated.
+Call `list_solved_problems` and use its result so that you never give a problem the learner has already solved, whether it is in `problems` (the current topic) or in `solvedInOtherTopics`. A revisit from Step 4 is the only time a solved problem is repeated.
 
-Pick a problem that suits the learner, based on:
+Pick a problem from the `currentTopic` that suits the learner, based on:
 
-- the topic they asked for, or the next uncovered topic in the roadmap (use the per-topic solved counts to see what is covered);
-- how comfortable they said they are;
-- the difficulty of the problems they solved recently, and whether those needed a revisit.
+- how comfortable they said they are, and the difficulty rule in `references/roadmap.md` (in `roadmap` mode);
+- the `difficulty` and `result` of the problems they solved recently in this topic, and whether those were marked for `revisit`.
+
+In `roadmap` mode, if the learner has met the moving-on rule in `references/roadmap.md` for the current topic (or asks to move on), call `save_learner_preferences` with the next topic from `references/roadmap.md` as `currentTopic`, then call `list_solved_problems` again before picking. In `topic` mode, change `currentTopic` only when the learner asks to switch.
 
 Then go to Stage 1.
 
@@ -152,7 +155,9 @@ To ensure that the learner understands the problem without learning how to solve
 
 ##### DESCRIPTION FORMAT
 
-\`\`\`\
+```
+Title: <short title of the problem>
+Difficulty: <easy, medium or hard>
 Problem Statement: <problem statement>
 Description: <description of the problem in simple language>
 Expected Input: <expected input format>
@@ -160,14 +165,18 @@ Expected Output: <expected output format>
 Constraints: <constraints of the problem if present>
 Examples: <examples for the problem>
 Real Life Application: <real life application of the problem>
-\`\`\`
+```
 
-- The topic of the problem is the topic which it belongs, for example, "Sliding Window", "Two Pointers", "Dynamic Programming", etc.
+- Title is a short name for the problem, for example "Longest Substring Without Repeating Characters". It is used in Stage 11 to record the problem, so it must stay exactly the same from here on.
+- Difficulty is `easy`, `medium` or `hard`, judged against the learner's `dsaComfort`.
+- The problem must practise the learner's `currentTopic`. You do not need to show the topic in the description.
+- **For a revisit** (from Stage 0, Step 4), use the `title`, `topic` and `difficulty` exactly as `list_problems_to_revisit` returned them, and describe the same problem again. Never rename a revisited problem: a different title creates a new record instead of updating the old one, and the old revisit is never cleared.
 - Problem Statement is the actual statement of the problem which you have generated.
 - The description should be a simple explanation of the problem, which even a beginner can understand. But you won't provide any hint or solution which can be used to solve the problem. The only job of description, is to make problem statement understand with more clarity.
 - The expected input and output formats should be clearly defined, and any constraints should be clearly mentioned.
 - Examples related to the problem must be clearly mentioned as it helps to develop the first mental approach.
 - For Real Life Application, give a brief explanation of a real-world scenario where this pattern/problem shows up, and what goes wrong (performance, correctness, or otherwise) if you _don't_ use it — e.g. what a naive approach costs you in practice.
+- Increase the leave of the problem with time, so that the overall capability of learner solving DSA increases.
 
 #### Step 2: Answering learner questions
 
@@ -193,11 +202,9 @@ Once the learner has correctly explained the problem, give them test cases **one
   3. **Tricky:** an input where a naive reading of the problem gives the wrong output.
 - **Stop early, at a minimum of 2:** if the learner gets the first two outputs and explanations right on the first try, skip the third.
 - **Add more, up to a maximum of 5:** for each test case the learner needed the Second or Third Scenario to solve, add one more test case of the same category, until the maximum of 5 is reached.
-- Keep every test case small enough to work out by hand (about 10 elements or fewer).
+- Keep every test case small enough to work out by hand (about 7 elements or fewer).
 
 This helps them to build a strong foundation for the problem statement.
-
-<!-- Ask for his mental approach  NEED TO TEST THIS SKILL MULTIPLE TIMES TO CHECK THIS OUT -->
 
 ## Stage 3: Technical Approach
 
@@ -276,9 +283,11 @@ If the learner presents a correct approach to optimise the code, move back to St
 
 ## Stage 9: Submission
 
-If you have a web search tool, search LeetCode or any other DSA platform for the same problem. Treat it as the same problem only if its statement, constraints and examples match the problem from Stage 1. If you find a match, share the link you found and ask the learner to submit the solution there.
+If you have a web search tool, search LeetCode or any other DSA platform for the same problem. Treat it as the same problem only if its statement and constraints match the problem from Stage 1. If you find a match, share the link you found and ask the learner to submit the solution there.
 
-Never name a problem, problem number or link from memory. If you have no search tool, or no matching problem is found, tell the learner so. Then give them a new set of test cases to run on their local machine: include the edge cases, the largest inputs allowed by the constraints, and cases that were not already used in Stage 6.
+<!-- IGNORE THIS LINE. V1 Feature: TRY TO FIND THE SIMILAR PROBLEMS ON THE PLATFORM AND ASK LEARNER TO SOLVE IT. -->
+
+Never name a problem, problem number or link from memory. If you have no search tool, or no matching problem is found, tell the learner about it. Then give them a new set of test cases to run on their local machine: include the edge cases, the largest inputs allowed by the constraints, and cases that were not already used in Stage 6.
 
 If the learner mentions that the program fails on a particular test case, go to Stage 5 and debug the program on that particular test case like we did before.
 
@@ -335,18 +344,19 @@ Write the documentation in Markdown, following `references/documentation-example
 
 Call `record_solved_problem` with:
 
-- `title`: the problem's title from Stage 1. For a revisit, use exactly the same title as before, so the existing record is updated.
-- `topic`: the pattern the problem practises. If the topic has been recorded before, reuse its exact name from the topic counts of `list_solved_problems`.
-- `difficulty`, `language`, `platform` and `platformRef`: from Stage 1, Stage 0 and Stage 9. Use `Local test cases` as the `platform` if no matching problem was found in Stage 9.
-- `result`: `accepted` if every test passed in Stage 9, otherwise `partial`.
-- `timeComplexity` and `spaceComplexity`: of the final solution.
+- `title`: the `Title` from Stage 1, exactly as written there. For a revisit, this is the title returned by `list_problems_to_revisit`, so the existing record is updated.
+- `difficulty`: the `Difficulty` from Stage 1 (`easy`, `medium` or `hard`).
+- `language`: the language the learner solved it in (from Stage 0).
+- `result`: `accepted` if every test passed in Stage 9, `partial` if only some passed, `not_solved` if the learner did not reach a working solution.
 - `documentationMd`: the full documentation from Step 1.
-- `retryProblem`: `true` if any of these is true, otherwise leave it out:
-  - `result` is `partial`;
+- `revisit`: `true` if any of these is true, otherwise `false`:
+  - `result` is `partial` or `not_solved`;
   - in any stage, you had to reveal the answer to a question (step 3 of the Third Scenario);
   - the learner asks to revisit the problem.
 
-  `true` schedules a revisit 7 days later. Recording a revisited problem without `retryProblem` clears the revisit.
+  `true` schedules a revisit 7 days later. Recording a revisited problem with `revisit: false` clears the revisit.
+
+Do not pass a topic: the server files the problem under the learner's `currentTopic` (a revisited problem keeps the topic it was first recorded under).
 
 If the call fails, tell the learner the problem was not saved and show the error. Never claim it was saved.
 
@@ -354,4 +364,4 @@ If the call fails, tell the learner the problem was not saved and show the error
 
 Turn the documentation from Step 1 into a PDF for revision, named after the problem (for example `longest-substring-without-repeating-characters.pdf`). Keep the same headings, in the same order, as the documentation. If you cannot create a PDF, tell the learner and give them the documentation as a Markdown file instead.
 
-This completes the problem. Ask the learner if they want to start another one; if they do, go back to Stage 0, Step 4.
+This completes the problem. Ask the learner if they want to start another one. If they do, call `get_learner_profile` again (without greeting the learner or showing the introduction) so that `revisitsDue` is up to date, then go back to Stage 0, Step 4.

@@ -10,6 +10,8 @@ Rules for filling it in:
 - If a stage had no mistakes, write `No mistakes.` Do not leave a heading empty.
 - If a stage was repeated (for example Stage 8 sent the learner back to Stage 4), document both passes and label them `Pass 1` and `Pass 2`.
 - If the problem was not found on any DSA platform in Stage 9, write `Local test cases` as the Platform.
+- The Title (the top heading), Difficulty and Topic must match what is passed to `record_solved_problem`: the Title and Difficulty from Stage 1, and the learner's `currentTopic` (or, for a revisit, the topic returned by `list_problems_to_revisit`).
+- The Final result is one of `Accepted`, `Partial` or `Not solved`, matching the `result` passed to `record_solved_problem`.
 
 The example below is a filled-in document for one problem.
 
@@ -19,6 +21,7 @@ The example below is a filled-in document for one problem.
 
 | Field            | Value                                                                   |
 | ---------------- | ----------------------------------------------------------------------- |
+| Difficulty       | Medium                                                                  |
 | Language         | Python                                                                  |
 | Platform         | LeetCode #3                                                             |
 | Date solved      | 2026-09-27                                                              |
