@@ -18,11 +18,54 @@ Without the MCP server the skill starts from zero every conversation. With it, t
 
 In `roadmap` mode, topics follow [references/roadmap.md](dsa-learning-skill/references/roadmap.md), which also sets the difficulty and moving-on rules.
 
+## Using it
+
+The MCP server is hosted at:
+
+```
+https://dsa-progress-mcp.onrender.com/mcp
+```
+
+You sign in with Google the first time a client connects. Your progress is tied to your Google account, not to the client, so it follows you between Claude and any other agent. While the Google app is in testing mode, only accounts added as test users can sign in; ask the maintainer to add yours.
+
+To get the skill as a zip, run this from the repo root:
+
+```bash
+zip -r dsa-learning-skill.zip dsa-learning-skill
+```
+
+### Claude (web and desktop)
+
+1. **Settings → Connectors → Add custom connector**, enter the URL above, and sign in with Google. Connectors added on the web also appear in the desktop app.
+2. **Settings → Capabilities**: turn on **Code execution and file creation** (skills need it, and Stage 11 uses it for the PDF), then upload `dsa-learning-skill.zip` under **Skills**.
+3. Start a chat, for example: "Coach me through a sliding window problem."
+
+Custom connectors and skills depend on your Claude plan.
+
+### Claude Code
+
+```bash
+claude mcp add --transport http -s user dsa-progress https://dsa-progress-mcp.onrender.com/mcp
+git clone https://github.com/tushar-nebhnani/dsa-learning-skill.git
+ln -s "$(pwd)/dsa-learning-skill/dsa-learning-skill" ~/.claude/skills/dsa-learning-skill
+```
+
+Then run `/mcp`, choose **dsa-progress → Authenticate**, and ask for a DSA problem.
+
+### Other agents
+
+- **MCP server:** works with any client that supports remote MCP over Streamable HTTP with OAuth and dynamic client registration, such as Cursor, VS Code (Copilot agent mode), Windsurf, Codex CLI, Gemini CLI and ChatGPT developer-mode connectors. Clients that need a pre-registered client ID are not supported.
+- **Skill:** agents that read the `SKILL.md` format load the whole [dsa-learning-skill/](dsa-learning-skill/) folder from their skills directory. For any other agent, paste `SKILL.md` into its custom instructions or project rules, followed by [roadmap.md](dsa-learning-skill/references/roadmap.md) and [documentation-example.md](dsa-learning-skill/references/documentation-example.md), since the skill refers to them by path.
+
+The skill was written and tested with Claude. On other models, check that the rules hold (see [Testing](#testing)). Without a web search tool, Stage 9 falls back to local test cases; without file creation, Stage 11 gives Markdown instead of a PDF.
+
 ## Repository layout
 
 The two parts live in separate folders because they ship to different places: the skill is uploaded as a zip of `SKILL.md` and `references/`, while the server is deployed to a host. They are kept in one repo because they share a contract: the five tool names and their inputs and outputs. When a tool changes in [dsa-progress-mcp/src/tools/](dsa-progress-mcp/src/tools/), update the **Available Tools** section of [SKILL.md](dsa-learning-skill/SKILL.md) in the same commit.
 
-## Running locally (Claude Code)
+## Running locally
+
+For development against your own server instead of the hosted one:
 
 1. Start the MCP server; see [dsa-progress-mcp/README.md](dsa-progress-mcp/README.md). You need a Google OAuth client with the redirect URI `http://localhost:3333/oauth/google/callback`.
 2. Register it with Claude Code:
@@ -54,18 +97,23 @@ The two parts live in separate folders because they ship to different places: th
 | Rules hold | "Just give me the code" or "skip to coding" is refused. |
 | Triggering | A DSA practice request loads the skill; an unrelated coding question does not. |
 
-## Deploying to claude.ai
+## Deployment
 
-claude.ai cannot reach `localhost`, so the server needs a public HTTPS URL.
+The hosted server runs on **Render** (web service `dsa-progress-mcp`, Singapore region, free plan) with a **Neon** Postgres database in the same region. Render auto-deploys every push to `main`.
 
-1. Create a hosted Postgres database and run `npm run db:migrate` against it.
-2. Deploy `dsa-progress-mcp/` to a Node host (`npm run build`, then `npm start`) with `HOST=0.0.0.0`, `TRUST_PROXY=1`, `KEEP_ALIVE=true` (on a free plan), `PUBLIC_URL=https://<your-domain>` and the other variables from its README.
-3. Add `https://<your-domain>/oauth/google/callback` as a redirect URI on the Google OAuth client.
-4. In claude.ai, open **Settings → Connectors → Add custom connector** and enter `https://<your-domain>/mcp`.
-5. Zip the skill folder and upload it under **Settings → Capabilities → Skills**:
+| Setting | Value |
+|---|---|
+| Build command | `cd dsa-progress-mcp && npm ci --include=dev && npm run build` |
+| Start command | `cd dsa-progress-mcp && npm start` |
+| Environment | `NODE_VERSION=22`, `HOST=0.0.0.0`, `TRUST_PROXY=1`, `KEEP_ALIVE=true`, `PUBLIC_URL=https://dsa-progress-mcp.onrender.com`, `DATABASE_URL` (Neon pooled connection string), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 
-   ```bash
-   zip -r dsa-learning-skill.zip dsa-learning-skill
-   ```
+`KEEP_ALIVE` stops Render's free plan from sleeping the server after 15 idle minutes. An always-on service uses about 744 of the workspace's 750 free instance hours a month, so turn it off or move to a paid plan if other free services share the workspace.
 
-6. Run the scenarios from [Testing](#testing) again in claude.ai.
+**Schema changes:** Render does not run migrations. Apply them to Neon before pushing code that needs them, using the direct (non-pooler) connection string:
+
+```bash
+cd dsa-progress-mcp
+DATABASE_URL="<neon direct url>" npx prisma migrate deploy
+```
+
+**Deploying your own copy:** create a Postgres database and apply the migrations as above, deploy `dsa-progress-mcp/` to a Node host with the settings in the table (using your own `PUBLIC_URL`), and add `$PUBLIC_URL/oauth/google/callback` as a redirect URI on your Google OAuth client.
