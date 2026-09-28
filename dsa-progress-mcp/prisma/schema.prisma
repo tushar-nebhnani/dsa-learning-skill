@@ -22,6 +22,7 @@ enum Difficulty {
 enum Result {
   accepted
   partial
+  not_solved
 }
 
 enum ComfortLevel {
@@ -45,13 +46,14 @@ enum TokenKind {
 // ─────────────────────────────────────────────
 
 /// A learner, identified by their Google account.
-/// "Onboarded" is not stored: a learner counts as onboarded once any preference is saved.
 model Learner {
   id                String        @id @default(uuid()) @db.Uuid
   googleSub         String        @unique @map("google_sub")
   email             String
   name              String?
   avatarUrl         String?       @map("avatar_url")
+  /// Set by save_learner_preferences.
+  onboarded         Boolean       @default(false)
   /// Stage 0 answers, saved so returning learners aren't asked again.
   preferredLanguage String?       @map("preferred_language")
   languageComfort   ComfortLevel? @map("language_comfort")
@@ -84,6 +86,8 @@ model SolvedProblem {
   result          Result
   /// Full Stage 11 documentation (Markdown), including complexity and the platform link.
   documentationMd String     @map("documentation_md")
+  /// Marked for revisit by record_solved_problem; listed by list_problems_to_revisit.
+  revisit         Boolean    @default(false)
   /// null = no revisit scheduled.
   revisitAt       DateTime?  @map("revisit_at") @db.Timestamptz(6)
   firstSolvedAt   DateTime   @default(now()) @map("first_solved_at") @db.Timestamptz(6)
@@ -92,7 +96,7 @@ model SolvedProblem {
 
   @@id([learnerId, slug])
   @@index([learnerId, topic])
-  @@index([learnerId, revisitAt])
+  @@index([learnerId, revisit, revisitAt])
   @@map("solved_problems")
 }
 
