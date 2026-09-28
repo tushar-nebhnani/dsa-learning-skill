@@ -1,14 +1,22 @@
 # dsa-progress-mcp
 
-MCP server for the DSA tutor skill. Learners sign in with Google via OAuth.
+MCP server for the [DSA tutor skill](../dsa-learning-skill/SKILL.md). It remembers each learner's preferences, solved problems and revisits. Learners sign in with Google via OAuth.
+
+Stack: TypeScript, Express (Streamable HTTP, stateless), Zod, Prisma 7 + Postgres.
 
 ## Tools
 
-- `get_learner_profile`: the signed-in learner's name, whether they are onboarded (any preference saved), total problems solved, problems due for a revisit (`revisit_at` has passed), and their saved preferences (language, language/DSA comfort, learning mode, current topic).
+The learner is always taken from the access token, never from tool input.
 
-Each tool lives in its own file under `src/tools/` and is registered in `src/tools/index.ts`.
+| Tool | Input | What it does |
+|---|---|---|
+| `get_learner_profile` | none | Returns the learner's `name`, `onboarded`, `totalSolved`, `revisitsDue` (revisit date has arrived) and `preferences` (`preferredLanguage`, `languageComfort`, `dsaComfort`, `learningMode`, `currentTopic`; unsaved ones are `null`). |
+| `save_learner_preferences` | any of the five preferences | Updates only the fields passed (at least one; `null` clears a field). The learner becomes `onboarded` once all five are saved, and stays onboarded. A `currentTopic` that matches an existing topic apart from case reuses that topic's spelling. |
+| `list_solved_problems` | none | Problems solved in the `currentTopic`, newest first, plus `solvedInOtherTopics`. Fails if no `currentTopic` is saved. |
+| `record_solved_problem` | `title`, `difficulty`, `language`, `result` (`accepted` / `partial` / `not_solved`), `documentationMd`, `revisit` | Saves a finished problem under the `currentTopic`. Records are matched on a slug of the title, so recording the same title again updates it (its topic and first-solved date are kept). `revisit: true` schedules a revisit 7 days later; `false` clears it. |
+| `list_problems_to_revisit` | none | Every problem marked for revisit, across all topics, earliest first, each with `due: true` once its revisit date has arrived. |
 
-Stack: TypeScript, Express (Streamable HTTP, stateless), Zod, Prisma 7 + Postgres.
+Each tool lives in its own file under `src/tools/`, is registered in `src/tools/index.ts`, and takes its schemas from `src/tools/schema.ts`. Every tool returns its result both as JSON text and as `structuredContent`.
 
 ## Setup
 
@@ -23,6 +31,8 @@ npm run db:migrate         # prisma migrate deploy
 npm run dev                # http://localhost:3333/mcp
 ```
 
+For production, `npm run build` then `npm start`.
+
 Register with Claude Code (no header needed; it opens the browser to sign in on first use):
 
 ```bash
@@ -30,6 +40,19 @@ claude mcp add --transport http dsa-progress http://localhost:3333/mcp
 ```
 
 Use `localhost` rather than `127.0.0.1` in the URL so it matches `PUBLIC_URL`.
+
+### Environment variables
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `DATABASE_URL` | yes | | Postgres connection string |
+| `HOST` | no | `127.0.0.1` | Interface to bind to |
+| `PORT` | no | `3333` | Port to listen on |
+| `PUBLIC_URL` | no | `http://localhost:$PORT` | OAuth issuer and base of `/mcp` and the Google redirect URI |
+| `GOOGLE_CLIENT_ID` | yes | | Google OAuth client |
+| `GOOGLE_CLIENT_SECRET` | yes | | Its secret |
+
+`GET /health` checks the database connection.
 
 ## Authentication
 
@@ -44,6 +67,10 @@ The server is its own OAuth 2.1 authorization server and uses Google only to ide
 
 The SDK's `mcpAuthRouter` serves the OAuth endpoints; `src/auth/provider.ts` stores clients, codes and tokens (only SHA-256 hashes of codes and tokens are stored). Any Google account with a verified email can sign in.
 
+## Errors
+
+Tool handlers are wrapped in `withToolErrors` (`src/utils/tool-error.ts`), which turns the `AppError` hierarchy in `src/utils/errors.ts` into MCP tool errors with a readable message, for example "Pass at least one preference to save."
+
 ## Schema changes
 
 Edit `prisma/schema.prisma`, then `npm run db:migrate:dev -- --name <change>` (needs the database running).
@@ -52,6 +79,7 @@ Edit `prisma/schema.prisma`, then `npm run db:migrate:dev -- --name <change>` (n
 
 ```bash
 npm test
+npm run typecheck
 ```
 
 Uses Node's built-in `node:test`. Tests run against an in-memory Postgres (PGlite) with the real Prisma migrations applied, so Docker is not required.
