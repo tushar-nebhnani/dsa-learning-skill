@@ -3,7 +3,7 @@
 import { animate } from 'motion'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { STAGES } from '@/lib/content'
-import { COMMANDS, LINKS } from '@/lib/site'
+import { COMMANDS, DOWNLOAD_NAME, LINKS } from '@/lib/site'
 import { EASE_OUT, OPEN_PALETTE, TOGGLE_THEME, copyText, prefersReducedMotion } from '@/lib/motion'
 
 type Command = { label: string; kind: 'jump' | 'copy' | 'link' | 'view'; run: () => void }
@@ -37,7 +37,7 @@ export function CommandPalette() {
     { label: 'Go to memory', kind: 'jump', run: () => scrollTo('memory', 'start') },
     { label: 'Go to rules', kind: 'jump', run: () => scrollTo('rules', 'start') },
     { label: 'Go to install', kind: 'jump', run: () => scrollTo('install', 'start') },
-    { label: 'Download the skill (.zip)', kind: 'link', run: () => { window.location.href = LINKS.download } },
+    { label: 'Download the skill (.zip)', kind: 'link', run: () => { const a = document.createElement('a'); a.href = LINKS.download; a.download = DOWNLOAD_NAME; a.click() } },
     { label: 'Copy: add the MCP server', kind: 'copy', run: () => { void copyText(COMMANDS.addServer) } },
     { label: 'Copy: install the downloaded skill', kind: 'copy', run: () => { void copyText(COMMANDS.unzip) } },
     { label: 'Copy: clone the skill', kind: 'copy', run: () => { void copyText(COMMANDS.clone) } },

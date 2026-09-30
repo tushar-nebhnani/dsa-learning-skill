@@ -207,3 +207,5 @@ $RECYCLE.BIN/
 # Design explorations (local only)
 design-demo/
 .hallmark
+# Built by website/scripts/build-skill-zip.mjs before each build
+website/public/dsa-learning-skill.zip

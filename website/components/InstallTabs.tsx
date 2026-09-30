@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { COMMANDS, LINKS } from '@/lib/site'
+import { COMMANDS, DOWNLOAD_NAME, LINKS } from '@/lib/site'
 import { CopyButton } from './CopyButton'
 
 const TABS = [
@@ -66,7 +66,7 @@ export function InstallTabs() {
         <ol>
           <li>Settings → Connectors → Add custom connector. Paste the server URL and sign in with Google.</li>
           <li>Settings → Capabilities: turn on Code execution and file creation.</li>
-          <li><a className="tlink" href={LINKS.download}>Download the skill zip</a> (or build it from the repo root) and upload it under Skills.</li>
+          <li><a className="tlink" href={LINKS.download} download={DOWNLOAD_NAME}>Download the skill zip</a> (or build it from the repo root) and upload it under Skills.</li>
         </ol>
         <Cmd id="cmd-server-url" label="Server URL" text={LINKS.mcp} />
         <Cmd id="cmd-zip" label="Zip the skill" text={COMMANDS.zip} />

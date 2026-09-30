@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { LINKS } from '@/lib/site'
+import { DOWNLOAD_NAME, LINKS } from '@/lib/site'
 import { PaletteButton } from './CommandPalette'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -79,7 +79,7 @@ export function Nav() {
             </svg>
           </a>
           <span className="vdiv" aria-hidden="true" />
-          <a className="btn primary dl" href={LINKS.download}>
+          <a className="btn primary dl" href={LINKS.download} download={DOWNLOAD_NAME}>
             <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 4v11m0 0 4.5-4.5M12 15l-4.5-4.5M5 19h14" /></svg>
             Download
           </a>

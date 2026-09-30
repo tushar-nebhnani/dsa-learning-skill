@@ -7,7 +7,7 @@ import { SessionCards } from '@/components/SessionCards'
 import { Nav } from '@/components/Nav'
 import { SessionStack } from '@/components/SessionStack'
 import { ROADMAP, STAGES, TOPIC_COUNT } from '@/lib/content'
-import { DESCRIPTION, LINKS, SITE_URL } from '@/lib/site'
+import { DESCRIPTION, DOWNLOAD_NAME, LINKS, SITE_URL } from '@/lib/site'
 
 // Structured data, so search engines can describe the page as a piece of software with a download.
 const jsonLd = {
@@ -18,7 +18,7 @@ const jsonLd = {
   url: `${SITE_URL}/`,
   applicationCategory: 'EducationalApplication',
   operatingSystem: 'Claude, Claude Code, and MCP clients',
-  downloadUrl: LINKS.download,
+  downloadUrl: LINKS.download.startsWith('http') ? LINKS.download : `${SITE_URL}${LINKS.download}`,
   softwareHelp: LINKS.repo,
   codeRepository: LINKS.repo,
 }
@@ -41,7 +41,7 @@ export default function Home() {
               <h1 id="hero-heading">Practise DSA without being handed the answer.</h1>
               <p className="lede">The tutor takes each problem through twelve stages and asks one question at a time. You write the pseudo code, find your own bugs and write every line of the code.</p>
               <div className="row">
-                <a className="btn primary" href={LINKS.download}>Download the skill (.zip)</a>
+                <a className="btn primary" href={LINKS.download} download={DOWNLOAD_NAME}>Download the skill (.zip)</a>
                 <a className="btn" href="#install">Install steps</a>
                 <a className="tlink" href="#session">Walk through a session ↓</a>
               </div>
@@ -111,7 +111,7 @@ export default function Home() {
               <span className="label">Install</span>
               <h2 id="install-heading">Pick your client.</h2>
               <p>Then ask: “Coach me through a sliding window problem.”</p>
-              <div><a className="btn primary" href={LINKS.download}>Download the skill (.zip)</a></div>
+              <div><a className="btn primary" href={LINKS.download} download={DOWNLOAD_NAME}>Download the skill (.zip)</a></div>
               <p className="note">SKILL.md and its two reference files. The MCP server is optional and remembers your progress.</p>
             </div>
             <InstallTabs />

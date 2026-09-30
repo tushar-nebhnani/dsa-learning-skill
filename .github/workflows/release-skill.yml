@@ -1,0 +1,33 @@
+# Attaches dsa-learning-skill.zip (SKILL.md + references/) to every GitHub release you publish,
+# so https://github.com/tushar-nebhnani/dsa-learning-skill/releases/latest/download/dsa-learning-skill.zip
+# always serves the newest skill. The website builds and serves the same zip itself.
+name: Attach skill zip to release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to attach the zip to
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+
+      - name: Zip the skill
+        run: zip -r -X dsa-learning-skill.zip dsa-learning-skill -x '*.DS_Store' '__MACOSX/*'
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: gh release upload "$TAG" dsa-learning-skill.zip --clobber --repo "$GITHUB_REPOSITORY"
