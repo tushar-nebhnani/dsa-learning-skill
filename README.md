@@ -6,6 +6,7 @@ A Claude skill that coaches a learner through DSA problems stage by stage, witho
 |---|---|---|
 | **DSA Learning Skill** | [dsa-learning-skill/](dsa-learning-skill/) | `SKILL.md`: a strict tutor that takes each problem from Stage 0 (setup) to Stage 11 (documentation and PDF). |
 | **DSA Progress MCP** | [dsa-progress-mcp/](dsa-progress-mcp/) | A remote MCP server (Streamable HTTP, Google sign-in) that stores the learner's preferences, solved problems and revisits in Postgres. |
+| **Website** | [website/](website/) | The homepage: a Next.js site, exported as static files, with the skill download, the MCP server URL and install steps. |
 
 Without the MCP server the skill starts from zero every conversation. With it, the tutor greets a returning learner, skips setup questions it already has answers to, never repeats a solved problem, and brings back problems marked for revisit after 7 days.
 
@@ -82,6 +83,8 @@ For development against your own server instead of the hosted one:
 
 4. Start a new `claude` session and ask it to coach you through a DSA problem. The first tool call opens the browser to sign in with Google.
 
+To work on the website, run `npm install` and `npm run dev` from `website/`, then open http://localhost:3000. See [website/README.md](website/README.md).
+
 ## Testing
 
 **Server:** from `dsa-progress-mcp/`, run `npm run typecheck` and `npm test`. The tests use an in-memory Postgres, so Docker is not needed.
@@ -106,6 +109,16 @@ The hosted server runs on **Render** (web service `dsa-progress-mcp`, Singapore 
 | Build command | `cd dsa-progress-mcp && npm ci --include=dev && npm run build` |
 | Start command | `cd dsa-progress-mcp && npm start` |
 | Environment | `NODE_VERSION=22`, `HOST=0.0.0.0`, `TRUST_PROXY=1`, `KEEP_ALIVE=true`, `PUBLIC_URL=https://dsa-progress-mcp.onrender.com`, `DATABASE_URL` (Neon pooled connection string), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+
+### Website
+
+[website/](website/) builds to static files in `website/out/`, so any static host can serve it. On Render, create a static site with the build command `cd website && npm ci && npm run build`, the publish directory `website/out`, and `NEXT_PUBLIC_SITE_URL` set to the site's public URL. Its **Download the skill** buttons link to `releases/latest/download/dsa-learning-skill.zip`, so each GitHub release needs a `dsa-learning-skill.zip` asset built with:
+
+```bash
+zip -r -X dsa-learning-skill.zip dsa-learning-skill -x '*.DS_Store'
+```
+
+### Server
 
 `KEEP_ALIVE` stops Render's free plan from sleeping the server after 15 idle minutes. An always-on service uses about 744 of the workspace's 750 free instance hours a month, so turn it off or move to a paid plan if other free services share the workspace.
 

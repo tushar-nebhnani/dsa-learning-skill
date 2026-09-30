@@ -1,0 +1,26 @@
+{
+  "name": "dsa-tutor-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The DSA Tutor homepage: a Next.js site exported as static files",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "npx --yes serve@14 out",
+    "typecheck": "tsc --noEmit",
+    "og-image": "node scripts/og-image.cjs"
+  },
+  "dependencies": {
+    "motion": "^13.4.6",
+    "next": "^16.3.7",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "playwright-core": "^1.63.0",
+    "typescript": "^5.9"
+  }
+}

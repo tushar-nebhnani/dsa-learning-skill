@@ -1,0 +1,85 @@
+/* DSA Tutor website · design tokens.
+ * Every colour, font, size, space and motion value on the site lives here and is referenced by name.
+ * Light is the default; dark applies from the system setting, or from the toggle (data-theme on <html>).
+ */
+:root{
+  color-scheme: light;
+  --color-paper:   oklch(98.5% 0.004 250);
+  --color-paper-2: oklch(96.5% 0.006 252);
+  --color-rule:    oklch(90%   0.008 255);
+  --color-rule-2:  oklch(83%   0.010 255);
+  --color-muted:   oklch(50%   0.015 257);
+  --color-ink-2:   oklch(34%   0.018 257);
+  --color-ink:     oklch(24%   0.020 258);
+  --color-accent:  oklch(55%   0.20  256);
+  --color-accent-ink: oklch(98.5% 0.004 250);
+  --color-accent-soft: oklch(93% 0.035 256);
+  --color-graphite:   oklch(21% 0.016 260);
+  --color-graphite-2: oklch(27% 0.018 260);
+  --color-on-dark:    oklch(94% 0.006 255);
+  --color-on-dark-2:  oklch(74% 0.012 257);
+  --color-accent-dark: oklch(74% 0.14 256);
+  --color-redact:     oklch(84% 0.010 255);
+  --color-scrim:      oklch(24% 0.020 258 / 0.35);
+  --color-focus:   oklch(55% 0.20 256);
+  --color-glass:   oklch(98.5% 0.004 250 / 0.82);
+
+  --font-display: var(--font-space-grotesk), "Helvetica Neue", Arial, sans-serif;
+  --font-body: var(--font-plex-sans), "Helvetica Neue", Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, Menlo, monospace;
+
+  --text-label: 0.75rem; --text-sm: 0.875rem; --text-base: 1rem; --text-md: 1.1875rem;
+  --text-h2: clamp(2rem, 3vw + 1rem, 3rem);
+  --text-display: clamp(2.5rem, 4.5vw + 1rem, 4.5rem);
+  --text-num: clamp(4rem, 8vw, 7rem);
+
+  --space-xs: 8px; --space-sm: 12px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px; --space-2xl: 64px; --space-3xl: 112px;
+  --radius-sm: 6px; --radius: 10px; --shell: 1200px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --dur-micro: 120ms; --dur-short: 200ms;
+  --z-nav: 40; --z-palette: 60;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  color-scheme: dark;
+  --color-paper:   oklch(17% 0.014 260);
+  --color-paper-2: oklch(21% 0.016 260);
+  --color-rule:    oklch(29% 0.016 260);
+  --color-rule-2:  oklch(38% 0.018 258);
+  --color-muted:   oklch(70% 0.014 257);
+  --color-ink-2:   oklch(84% 0.010 257);
+  --color-ink:     oklch(96% 0.006 255);
+  --color-accent:  oklch(70% 0.15 256);
+  --color-accent-ink: oklch(17% 0.014 260);
+  --color-accent-soft: oklch(30% 0.07 256);
+  --color-graphite:   oklch(12% 0.012 260);
+  --color-graphite-2: oklch(24% 0.016 260);
+  --color-on-dark:    oklch(94% 0.006 255);
+  --color-on-dark-2:  oklch(74% 0.012 257);
+  --color-accent-dark: oklch(76% 0.13 256);
+  --color-redact:     oklch(36% 0.016 258);
+  --color-scrim:      oklch(8% 0.01 260 / 0.6);
+  --color-focus:   oklch(76% 0.13 256);
+  --color-glass:   oklch(17% 0.014 260 / 0.8);
+} }
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --color-paper:   oklch(17% 0.014 260);
+  --color-paper-2: oklch(21% 0.016 260);
+  --color-rule:    oklch(29% 0.016 260);
+  --color-rule-2:  oklch(38% 0.018 258);
+  --color-muted:   oklch(70% 0.014 257);
+  --color-ink-2:   oklch(84% 0.010 257);
+  --color-ink:     oklch(96% 0.006 255);
+  --color-accent:  oklch(70% 0.15 256);
+  --color-accent-ink: oklch(17% 0.014 260);
+  --color-accent-soft: oklch(30% 0.07 256);
+  --color-graphite:   oklch(12% 0.012 260);
+  --color-graphite-2: oklch(24% 0.016 260);
+  --color-on-dark:    oklch(94% 0.006 255);
+  --color-on-dark-2:  oklch(74% 0.012 257);
+  --color-accent-dark: oklch(76% 0.13 256);
+  --color-redact:     oklch(36% 0.016 258);
+  --color-scrim:      oklch(8% 0.01 260 / 0.6);
+  --color-focus:   oklch(76% 0.13 256);
+  --color-glass:   oklch(17% 0.014 260 / 0.8);
+}
