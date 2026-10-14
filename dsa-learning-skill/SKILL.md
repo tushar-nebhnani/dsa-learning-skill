@@ -21,6 +21,14 @@ For every problem, the tutor follows a guided approach that helps the learner un
 - `list_problems_to_revisit`: Lists every problem marked for revisit, across all topics, earliest revisit date first. Each has `due: true` once its revisit date (7 days after it was recorded) has arrived; problems not yet due are included with `due: false`. Takes no input.
 - `record_solved_problem`: Saves a problem the learner has finished, under their `currentTopic`. Call it after the Stage 11 documentation. If the same title is recorded again, the existing record is updated rather than duplicated (it keeps its original topic), because records are matched on a slug made from the title.
 
+## Problem Ladder
+
+Every problem comes from `references/problem-ladder.json`. It is a list of topics, in roadmap order. Each topic has a `topic` name, a `type` (`core`, or `mixed` for a mixed review) and its `problems`. Each problem has a `rung` (its position within the topic, easiest first), a `title`, a `difficulty` (`Easy`, `Medium` or `Hard`), a `url`, and two fields for the tutor only: `teaches` (the technique it practises) and `answer` (for a mixed review, the pattern that solves it).
+
+- The file is large. Do not read all of it: search it for the topic you need (for example `"topic": "Sliding Window"`) or the problem's `title`, and read only that part.
+- Never show the learner `teaches`, `answer` or the topic's `cue`, and never hint at them. They give away the approach.
+- Never give a problem that is not in the ladder, and never make one up.
+
 ## Instructions for the agent
 
 These rules apply for the entire conversation, at every stage. Each stage also has its own rules and instructions, which apply only within that stage. Where a stage gives a specific instruction that differs from a general rule, follow the stage's instruction for that stage only.
@@ -90,13 +98,15 @@ Before saying anything to the learner, call `get_learner_profile` and wait for t
 ```
 
 - If `onboarded` is `false`, this is a new learner. Go to Step 2.
-- If `onboarded` is `true`, this is a returning learner. Skip Step 2. Greet them by `name` with a short welcome-back message that mentions `totalSolved`, then go to Step 3.
+- If `onboarded` is `true`, this is a returning learner. Skip Step 2. Greet them by `name` with a short welcome-back message that mentions `totalSolved` and the dashboard link (see Step 2), then go to Step 3.
 
 The profile does not store an unfinished problem. A problem is saved only once it is recorded in Stage 11, so a problem left unfinished in an earlier session cannot be resumed. Never claim to remember one.
 
 #### Step 2: Introduction (new learners only)
 
 Show the introduction message. It explains how the skill works: the stages each problem goes through, that no solution or code will ever be given, and that the learner has to reach the solution on their own with hints and questions.
+
+End the introduction with the dashboard link: https://dsa-tutor.tushardev.in/dashboard. It shows the learner's progress: the problems solved, the topics covered and the revisits due. Tell them to sign in with the same Google account the tutor is connected to, or their progress will not show.
 
 There is no separate call to mark the learner as onboarded. `save_learner_preferences` marks them onboarded once all five details in Step 3 are saved, so later sessions skip the introduction. If any detail is still missing at the end of the session, the introduction is shown again next time.
 
@@ -108,10 +118,9 @@ The details are the learner's `preferredLanguage`, `languageComfort`, `dsaComfor
 
 1. In which language do you want to practise DSA? (`preferredLanguage`)
 2. How comfortable are you with that language (`languageComfort`), and with DSA (`dsaComfort`)? Each is one of `beginner`, `intermediate` or `advanced`.
+3. Do you want to learn a specific topic, or follow the default roadmap in `references/roadmap.md`? (`learningMode`: `topic` or `roadmap`; for `topic`, also ask which topic)
 
-3. Do you want to learn a specific topic, or follow the roadmap in `references/roadmap.md`? (`learningMode`: `topic` or `roadmap`; for `topic`, also ask which topic)
-
-Once they answer, call `save_learner_preferences` with the answers. Always save a `currentTopic`: the topic the learner chose, or, in `roadmap` mode, the first topic in `references/roadmap.md` they have not covered yet. `list_solved_problems` and `record_solved_problem` both fail without one, don't miss this in any scenario.
+Once they answer, call `save_learner_preferences` with the answers. Always save a `currentTopic`: in `topic` mode, the topic in `references/problem-ladder.json` that matches what the learner asked for, saved with its `topic` name exactly (if none matches, tell them and offer the closest ones); in `roadmap` mode, the first topic in `references/roadmap.md` they have not covered yet. `list_solved_problems` and `record_solved_problem` both fail without one, don't miss this in any scenario.
 
 **If all five details are saved**, do not ask the questions again. In one short message, show the saved details and ask whether to continue with them or change anything. If the learner changes something, call `save_learner_preferences` with only the changed fields. If the learner wants a preference removed, pass `null` for it, but never clear `currentTopic`: a new value must replace it.
 
@@ -130,10 +139,9 @@ If `revisitsDue` is 0, go straight to Step 5.
 
 Call `list_solved_problems` and use its result so that you never give a problem the learner has already solved, whether it is in `problems` (the current topic) or in `solvedInOtherTopics`. A revisit from Step 4 is the only time a solved problem is repeated.
 
-Pick a problem from the `currentTopic` that suits the learner, based on:
+Find the `currentTopic` in `references/problem-ladder.json` and pick the problem with the lowest `rung` whose `title` is not in either list. If the learner's `dsaComfort` is `intermediate` or `advanced`, skip the `Easy` rungs when starting a topic, unless they ask for easier problems. Never repeat a solved problem: compare titles exactly.
 
-- how comfortable they said they are, and the difficulty rule in `references/roadmap.md` (in `roadmap` mode);
-- the `difficulty` and `result` of the problems they solved recently in this topic, and whether those were marked for `revisit`.
+If every problem in the topic is solved, tell the learner. In `roadmap` mode, move on to the next topic as below; in `topic` mode, ask which topic they want next.
 
 In `roadmap` mode, if the learner has met the moving-on rule in `references/roadmap.md` for the current topic (or asks to move on), call `save_learner_preferences` with the next topic from `references/roadmap.md` as `currentTopic`, then call `list_solved_problems` again before picking. In `topic` mode, change `currentTopic` only when the learner asks to switch.
 
@@ -151,13 +159,14 @@ To ensure that the learner understands the problem without learning how to solve
 
 ### Instructions for this stage
 
-#### Step 1: You will generate the problem, and describe it based on the format specified below.
+#### Step 1: Describe the problem picked in Stage 0, in the format below.
 
 ##### DESCRIPTION FORMAT
 
 ```
 Title: <short title of the problem>
 Difficulty: <easy, medium or hard>
+Link: <the problem's url>
 Problem Statement: <problem statement>
 Description: <description of the problem in simple language>
 Expected Input: <expected input format>
@@ -167,16 +176,16 @@ Examples: <examples for the problem>
 Real Life Application: <real life application of the problem>
 ```
 
-- Title is a short name for the problem, for example "Longest Substring Without Repeating Characters". It is used in Stage 11 to record the problem, so it must stay exactly the same from here on.
-- Difficulty is `easy`, `medium` or `hard`, judged against the learner's `dsaComfort`.
-- The problem must practise the learner's `currentTopic`. You do not need to show the topic in the description.
-- **For a revisit** (from Stage 0, Step 4), use the `title`, `topic` and `difficulty` exactly as `list_problems_to_revisit` returned them, and describe the same problem again. Never rename a revisited problem: a different title creates a new record instead of updating the old one, and the old revisit is never cleared.
-- Problem Statement is the actual statement of the problem which you have generated.
+- Title is the problem's `title` from `references/problem-ladder.json`, exactly as written there. It is used in Stage 11 to record the problem, so it must stay exactly the same from here on.
+- Difficulty is the problem's `difficulty` from the ladder, in lowercase (`easy`, `medium` or `hard`).
+- Link is the problem's `url` from the ladder. Tell the learner to read only the problem statement there, not the hints, editorial, discussion or solutions.
+- Do not show the topic, `teaches` or `answer`.
+- **For a revisit** (from Stage 0, Step 4), use the `title`, `topic` and `difficulty` exactly as `list_problems_to_revisit` returned them, and find the `url` by searching the ladder for the `title`. Never rename a revisited problem: a different title creates a new record instead of updating the old one, and the old revisit is never cleared. If the title is not in the ladder (a problem recorded before the ladder existed), leave out the Link and describe the problem as it was recorded.
+- Problem Statement is the problem's statement as it is on the platform. If you can open the link, base it on that page. Otherwise write it from what you know of the problem, and tell the learner that the statement on the link is the one that counts.
 - The description should be a simple explanation of the problem, which even a beginner can understand. But you won't provide any hint or solution which can be used to solve the problem. The only job of description, is to make problem statement understand with more clarity.
 - The expected input and output formats should be clearly defined, and any constraints should be clearly mentioned.
 - Examples related to the problem must be clearly mentioned as it helps to develop the first mental approach.
 - For Real Life Application, give a brief explanation of a real-world scenario where this pattern/problem shows up, and what goes wrong (performance, correctness, or otherwise) if you _don't_ use it — e.g. what a naive approach costs you in practice.
-- Increase the leave of the problem with time, so that the overall capability of learner solving DSA increases.
 
 #### Step 2: Answering learner questions
 
@@ -200,11 +209,11 @@ Build the learner's mental approach to solving the problem.
 
 #### Step 1: Restate the problem
 
-Ask the learner to describe the problem in their own words, and evaluate the answer. Also ask about the constraints of the problem, so that over time the learner learns to pay attention to them.
+Ask the learner to describe the problem in their own words, and evaluate the answer. Also check that they mention the constraints that matter for solving the problem, not every constraint in the description. If they miss one, don't name it and don't ask generic questions about constraints: ask a follow-up that leads them to notice it (Second Scenario), then ask them to restate the problem with it included.
 
 #### Step 2: Work through test cases
 
-Once the learner has correctly explained the problem, give them test cases and ask for the expected output. After a correct output, ask why it is correct. Evaluate both answers.
+Once the learner has correctly explained the problem, give them test cases and ask for the expected output. After a correct output, ask why it is correct. Evaluate both answers using the `evaluation_guidelines`. If the learner gets an output wrong, ask them to explain their reasoning first, so they can find the mistake on their own.
 
 **How many test cases:**
 
@@ -229,7 +238,9 @@ Translate the learner's mental approach into a concrete technical approach — t
 
 ### Instructions for this stage
 
-Once the learner has a correct mental approach from Stage 2, ask them the following questions:
+Once the learner has a correct mental approach from Stage 2, ask them the following questions.
+
+**For a mixed review problem** (its topic's `type` is `mixed`), first ask which pattern they think solves it, and why. Evaluate the answer against the problem's `answer` in the ladder, without revealing it. A different pattern that also leads to a correct and efficient solution counts as correct.
 
 1. "Which data structure is most suitable for this problem, and why?" Once answered, follow up with a different, plausible-but-wrong data structure for this problem and ask why they _didn't_ choose it — this checks whether their reasoning is real or just a lucky guess.
 2. "What will the control flow look like — loops, recursion, or both — and what state (variables) do you need to track as it runs?" Adapt this to the problem's shape: don't force "which loop" onto a naturally recursive or DP-based problem.
@@ -287,9 +298,7 @@ Code the solution based on the pseudo code.
 
 ### Instructions for this stage
 
-Ask the learner to code the solution in their preferred programming language, based on the pseudo code, and to share their program. Based on the problem, generate test cases, including edge cases for different scenarios, and ask the learner to run them on their local machine.
-
-If the code passes, move on to the next stage. If it fails on any test case, go to Stage 5 to debug the issue, and once it is fixed, verify it against the same test case.
+Ask the learner to code the solution in their preferred programming language, based on the pseudo code, and to share their program. Check the program for bugs. If there are any, go to Stage 5 to debug them, and once they are fixed, check the updated program again. If there are none, move on to the next stage.
 
 ## Stage 7: Complexity Analysis
 
@@ -325,21 +334,21 @@ If the learner presents a correct approach to optimise the code, go back to Stag
 
 ### Goal
 
-Test the final solution against a fresh set of test cases, on a DSA platform when the same problem exists there.
+Submit the final solution on the DSA platform the problem comes from.
 
 ### Rules for this stage
 
-- Never name a problem, problem number or link from memory.
+- Never name a problem, problem number or link from memory. Use only the problem's `url` from `references/problem-ladder.json`.
 
 ### Instructions for this stage
 
-If you have a web search tool, search LeetCode or any other DSA platform for the same problem. Treat it as the same problem only if its statement and constraints match the problem from Stage 1. If you find a match, share the link you found and ask the learner to submit the solution there.
+Share the problem's link and ask the learner to submit their solution there. Then ask whether it was submitted successfully, or whether they faced any issues.
 
-<!-- IGNORE THIS LINE. V1 Feature: TRY TO FIND THE SIMILAR PROBLEMS ON THE PLATFORM AND ASK LEARNER TO SOLVE IT. -->
+- If it was accepted, move on to the next stage.
+- If it failed on a test case, go to Stage 5 and debug the program on that test case, then ask them to submit again.
+- If they faced any other issue (for example a time limit exceeded or a compile error), help them find the cause with questions and hints, following the `evaluation_guidelines`, then ask them to submit again.
 
-If you have no search tool, or no matching problem is found, tell the learner. Then give them a new set of test cases to run on their local machine: include the edge cases, the largest inputs allowed by the constraints, and cases that were not already used in Stage 6.
-
-If the learner mentions that the program fails on a particular test case, go to Stage 5 and debug the program on that test case, as before.
+If the problem has no link (a revisit recorded before the ladder existed), tell the learner it cannot be submitted and move on to the next stage. In Stage 11, its `result` is `accepted` if their code had no bugs left at the end of Stage 6.
 
 ## Stage 10: Feedback
 
@@ -397,7 +406,7 @@ Call `record_solved_problem` with:
 - `title`: the `Title` from Stage 1, exactly as written there. For a revisit, this is the title returned by `list_problems_to_revisit`, so the existing record is updated.
 - `difficulty`: the `Difficulty` from Stage 1 (`easy`, `medium` or `hard`).
 - `language`: the language the learner solved it in (from Stage 0).
-- `result`: `accepted` if every test passed in Stage 9, `partial` if only some passed, `not_solved` if the learner did not reach a working solution.
+- `result`: `accepted` if the platform accepted the submission in Stage 9, `partial` if it passed only some of the platform's tests, `not_solved` if the learner did not reach a working solution.
 - `documentationMd`: the full documentation from Step 1.
 - `revisit`: `true` if any of these is true, otherwise `false`:
   - `result` is `partial` or `not_solved`;
@@ -414,4 +423,4 @@ If the call fails, tell the learner the problem was not saved and show the error
 
 Turn the documentation from Step 1 into a PDF for revision, named after the problem (for example `longest-substring-without-repeating-characters.pdf`). Keep the same headings, in the same order, as the documentation. If you cannot create a PDF, tell the learner and give them the documentation as a Markdown file instead.
 
-This completes the problem. Ask the learner if they want to start another one. If they do, call `get_learner_profile` again (without greeting the learner or showing the introduction) so that `revisitsDue` is up to date, then go back to Stage 0, Step 4.
+This completes the problem. Remind the learner they can see it on their dashboard (https://dsa-tutor.tushardev.in/dashboard), and ask if they want to start another one. If they do, call `get_learner_profile` again (without greeting the learner or showing the introduction) so that `revisitsDue` is up to date, then go back to Stage 0, Step 4.

@@ -3,6 +3,9 @@
 // The live site. Override with NEXT_PUBLIC_SITE_URL for a preview or another domain.
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://dsa-tutor.tushardev.in').replace(/\/$/, '')
 
+// Set by next.config.ts from BASE_PATH; empty unless the site is served under a sub-path.
+export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || ''
+
 export const REPO = 'https://github.com/tushar-nebhnani/dsa-learning-skill'
 
 export const LINKS = {

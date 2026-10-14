@@ -9,7 +9,7 @@ Rules for filling it in:
 - Record only the learner's own reasoning and code. Do not add approaches or code the learner did not reach themselves.
 - If a stage had no mistakes, write `No mistakes.` Do not leave a heading empty.
 - If a stage was repeated (for example Stage 8 sent the learner back to Stage 4), document both passes and label them `Pass 1` and `Pass 2`.
-- If the problem was not found on any DSA platform in Stage 9, write `Local test cases` as the Platform.
+- The Platform is the problem's `url` from `references/problem-ladder.json`. If the problem has no link (a revisit recorded before the ladder existed), write `Not submitted`.
 - The Title (the top heading), Difficulty and Topic must match what is passed to `record_solved_problem`: the Title and Difficulty from Stage 1, and the learner's `currentTopic` (or, for a revisit, the topic returned by `list_problems_to_revisit`).
 - The Final result is one of `Accepted`, `Partial` or `Not solved`, matching the `result` passed to `record_solved_problem`.
 
@@ -23,7 +23,7 @@ The example below is a filled-in document for one problem.
 | ---------------- | ----------------------------------------------------------------------- |
 | Difficulty       | Medium                                                                  |
 | Language         | Python                                                                  |
-| Platform         | LeetCode #3                                                             |
+| Platform         | https://leetcode.com/problems/longest-substring-without-repeating-characters/ |
 | Date solved      | 2026-09-27                                                              |
 | Final result     | Accepted                                                                |
 | Final complexity | Time O(n), Space O(min(n, k)), where k is the size of the character set |

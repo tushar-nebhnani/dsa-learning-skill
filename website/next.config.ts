@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { NextConfig } from 'next'
 
-// A static export: `next build` writes plain HTML, CSS and JS to out/, so any static host can serve it.
+// Runs as a Node server (`next start`): the homepage is prerendered, the dashboard and its sign-in routes run per request.
 // BASE_PATH is only needed when the site lives under a sub-path, such as a GitHub Pages project site.
 const basePath = process.env.BASE_PATH || ''
 
@@ -15,9 +15,8 @@ const skillZip = hasZip
 if (!hasZip) console.warn('⚠ public/dsa-learning-skill.zip is missing; download buttons will point to the GitHub release.')
 
 const nextConfig: NextConfig = {
-  output: 'export',
   basePath: basePath || undefined,
-  env: { NEXT_PUBLIC_SKILL_ZIP: skillZip },
+  env: { NEXT_PUBLIC_SKILL_ZIP: skillZip, NEXT_PUBLIC_BASE_PATH: basePath },
   images: { unoptimized: true },
   reactStrictMode: true,
 }

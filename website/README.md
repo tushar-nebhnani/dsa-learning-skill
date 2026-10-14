@@ -1,6 +1,6 @@
 # Website
 
-The DSA Tutor homepage, built with Next.js (App Router) and React, and exported as a static site. `npm run build` writes plain HTML, CSS and JS to `out/`, so any static host can serve it.
+The DSA Tutor homepage and dashboard, built with Next.js (App Router) and React. It runs as a Node server: the homepage is prerendered at build time, and the dashboard and its sign-in routes run per request.
 
 ## Commands
 
@@ -10,8 +10,8 @@ From `website/`:
 |---|---|
 | `npm install` | Install dependencies. |
 | `npm run dev` | Run the dev server at http://localhost:3000. |
-| `npm run build` | Build the static site into `out/`. |
-| `npm start` | Serve `out/` locally to check a build. |
+| `npm run build` | Build the site. |
+| `npm start` | Run the built site (`next start`). |
 | `npm run typecheck` | Type-check without building. |
 | `npm run og-image` | Re-render the social preview image (needs Google Chrome). |
 
@@ -20,7 +20,12 @@ From `website/`:
 | Variable | When | What it does |
 |---|---|---|
 | `NEXT_PUBLIC_SITE_URL` | Every production build | The site's public URL, such as `https://dsa-tutor.example.com`. Used for the canonical link, Open Graph and Twitter image URLs, `sitemap.xml` and `robots.txt`. Defaults to `http://localhost:3000`, which is wrong for production. |
+| `DATABASE_URL` | For the dashboard | The progress database, the same one the MCP server uses. The dashboard only reads from it. |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | For the dashboard | A Google OAuth client of type **Web application** with the redirect URI `$NEXT_PUBLIC_SITE_URL/api/auth/google/callback`. |
+| `SESSION_SECRET` | For the dashboard | Signs the session cookie. At least 32 characters, for example from `openssl rand -base64 32`. |
 | `BASE_PATH` | Only when served under a sub-path | For example `/dsa-learning-skill` on a GitHub Pages project site. |
+
+Copy `.env.example` to `.env.local` for local work. Without the dashboard variables the rest of the site still works, and the sign-in button reports that sign-in isn't set up.
 
 ## Layout
 
@@ -28,16 +33,33 @@ From `website/`:
 |---|---|
 | `app/layout.tsx` | Page metadata (title, description, canonical, Open Graph, Twitter), fonts, and the script that applies a saved theme before first paint. |
 | `app/page.tsx` | The page, as a server component, plus JSON-LD structured data. |
+| `app/dashboard/page.tsx` | The dashboard at `/dashboard`: the learner's journey on one page. Rendered per request: signed in, it reads the learner's progress from the database; signed out, it shows the sign-in dialog over the example journey. Marked `noindex`. |
+| `app/api/auth/` | The dashboard's sign-in routes: start Google sign-in, Google's callback, and sign out. |
 | `app/tokens.css` | Every colour, font, size, space and motion value, for the light and dark themes. Change the look here. |
 | `app/globals.css` | Layout and components. It uses the tokens by name and never sets a colour or font directly. |
 | `app/sitemap.ts`, `app/robots.ts` | Generate `sitemap.xml` and `robots.txt`. |
 | `app/icon.svg`, `app/opengraph-image.png` | The tab icon and the 1200×630 social preview. Next.js adds the tags for both. |
 | `components/` | Client components for the parts that respond to the visitor: theme toggle, ⌘K menu, hero replay, the stage pane that follows the scroll, roadmap bar, install tabs and copy buttons. `SessionCards.tsx` is a server component. |
 | `lib/site.ts` | Every URL and install command on the page. |
-| `lib/content.ts` | The stages and the roadmap counts. |
+| `lib/content.ts` | The stages and the roadmap sections and topics. |
+| `lib/journey.ts` | The dashboard's data shape (the MCP tools' field names), the example journey, and the figures worked out from it: roadmap progress, weeks, the daily heatmap and streaks. |
+| `lib/session.ts` | The Google sign-in exchange and the signed session cookie. Server only. |
+| `lib/db.ts` | The query that loads a learner's journey from the database. Server only. |
 | `scripts/` | The source and script for the social preview image. |
 
-Everything a visitor reads is in the server-rendered HTML, including all 12 session cards and all three install panels, so search engines and readers without JavaScript get the full page.
+Everything a visitor reads on the homepage is in the prerendered HTML, including all 12 session cards and all three install panels, so search engines and readers without JavaScript get the full page.
+
+## Dashboard sign-in
+
+The dashboard has its own sign-in, separate from the MCP server's OAuth:
+
+1. **Sign in with Google** goes to `/api/auth/google`, which sets a one-time state cookie and redirects to Google.
+2. Google returns to `/api/auth/google/callback`. The route checks the state, exchanges the code for the visitor's Google account id, and sets a signed, HTTP-only session cookie (30 days).
+3. `/dashboard` reads the cookie on the server, finds the learner with that Google account id in the `users` table, and loads their solved problems before the page is sent.
+
+Nothing is written to the database. A Google account the tutor has never seen gets an empty dashboard; progress appears once that account is connected to the MCP server and a problem is recorded.
+
+The heatmap and streaks count a day as active when a problem was first solved or last recorded on it, in the visitor's time zone (the browser reports it in a `dsa_tz` cookie). The database keeps only those two dates per problem, so a session between them isn't counted.
 
 ## Themes
 
@@ -52,7 +74,7 @@ Animations use [Motion](https://motion.dev). Everything is visible without them,
 The page repeats facts from the skill and the server. When one of these changes, update the page in the same commit:
 
 - The stages, loops and rules of engagement, from [SKILL.md](../dsa-learning-skill/SKILL.md): `lib/content.ts` and `app/page.tsx`.
-- The roadmap section counts, from [roadmap.md](../dsa-learning-skill/references/roadmap.md): `lib/content.ts`.
+- The roadmap sections and topic names, from [roadmap.md](../dsa-learning-skill/references/roadmap.md): `lib/content.ts`.
 - The example session, from [documentation-example.md](../dsa-learning-skill/references/documentation-example.md): `components/SessionCards.tsx`.
 - The five tool names, the server URL and the install commands, from the root [README](../README.md): `lib/site.ts` and the footer in `app/page.tsx`.
 

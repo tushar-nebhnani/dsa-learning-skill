@@ -2,13 +2,13 @@
   "name": "dsa-tutor-website",
   "version": "1.0.0",
   "private": true,
-  "description": "The DSA Tutor homepage: a Next.js site exported as static files",
+  "description": "The DSA Tutor homepage and dashboard: a Next.js site",
   "scripts": {
     "predev": "node scripts/build-skill-zip.mjs",
     "dev": "next dev",
     "prebuild": "node scripts/build-skill-zip.mjs",
     "build": "next build",
-    "start": "npx --yes serve@14 out",
+    "start": "next start",
     "typecheck": "tsc --noEmit",
     "og-image": "node scripts/og-image.cjs",
     "skill-zip": "node scripts/build-skill-zip.mjs"
@@ -16,11 +16,13 @@
   "dependencies": {
     "motion": "^13.4.6",
     "next": "^16.3.7",
+    "pg": "^8.23.1",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@types/node": "^22",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "fflate": "^0.8.3",

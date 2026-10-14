@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { DOWNLOAD_NAME, LINKS } from '@/lib/site'
 import { PaletteButton } from './CommandPalette'
@@ -12,10 +13,11 @@ export const SECTIONS = [
   { id: 'install', label: 'Install' },
 ] as const
 
-/** Brand, section links that follow the scroll, the ⌘K menu, theme, GitHub and the download. Frosts once the page scrolls. */
-export function Nav() {
+/** Brand, section links that follow the scroll, the ⌘K menu, theme, GitHub and the download. Frosts once the page scrolls. Off the homepage, the section links lead back to it. */
+export function Nav({ page = 'home' }: { page?: 'home' | 'dashboard' }) {
+  const home = page === 'home'
   const [scrolled, setScrolled] = useState(false)
-  const [active, setActive] = useState<string | null>(null)
+  const [active, setActive] = useState<string | null>(home ? null : page)
   const track = useRef<HTMLElement>(null)
   const ind = useRef<HTMLSpanElement>(null)
 
@@ -24,7 +26,7 @@ export function Nav() {
     const place = () => {
       const bar = ind.current, box = track.current
       if (!bar || !box) return
-      const link = active ? box.querySelector<HTMLElement>(`a[href="#${active}"]`) : null
+      const link = active ? box.querySelector<HTMLElement>(`a[data-id="${active}"]`) : null
       if (!link) { bar.style.opacity = '0'; return }
       const inset = 12
       bar.style.opacity = '1'
@@ -51,22 +53,29 @@ export function Nav() {
     return () => { window.removeEventListener('scroll', onScroll); io.disconnect() }
   }, [])
 
+  const brand = (
+    <>
+      <svg className="mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="7" />
+        <path d="M11 9c-2.5 0-3 1.2-3 3v1.5c0 1.3-.6 2-2 2.5 1.4.5 2 1.2 2 2.5V20c0 1.8.5 3 3 3M21 9c2.5 0 3 1.2 3 3v1.5c0 1.3.6 2 2 2.5-1.4.5-2 1.2-2 2.5V20c0 1.8-.5 3-3 3" />
+      </svg>
+      <span className="wm">dsa tutor</span>
+      <span className="beta">Beta</span>
+    </>
+  )
+
   return (
     <header className={`nav wrap${scrolled ? ' scrolled' : ''}`}>
       <div className="shell">
-        <a className="brand" href="#top" aria-label="DSA Tutor, back to top">
-          <svg className="mark" viewBox="0 0 32 32" aria-hidden="true">
-            <rect width="32" height="32" rx="7" />
-            <path d="M11 9c-2.5 0-3 1.2-3 3v1.5c0 1.3-.6 2-2 2.5 1.4.5 2 1.2 2 2.5V20c0 1.8.5 3 3 3M21 9c2.5 0 3 1.2 3 3v1.5c0 1.3.6 2 2 2.5-1.4.5-2 1.2-2 2.5V20c0 1.8-.5 3-3 3" />
-          </svg>
-          <span className="wm">dsa tutor</span>
-          <span className="beta">Beta</span>
-        </a>
+        {home
+          ? <a className="brand" href="#top" aria-label="DSA Tutor, back to top">{brand}</a>
+          : <Link className="brand" href="/" aria-label="DSA Tutor, homepage">{brand}</Link>}
 
         <nav className="navlinks" aria-label="Sections" ref={track}>
-          {SECTIONS.map(s => (
-            <a key={s.id} href={`#${s.id}`} aria-current={active === s.id ? 'true' : undefined}>{s.label}</a>
-          ))}
+          {SECTIONS.map(s => home
+            ? <a key={s.id} href={`#${s.id}`} data-id={s.id} aria-current={active === s.id ? 'true' : undefined}>{s.label}</a>
+            : <Link key={s.id} href={`/#${s.id}`} data-id={s.id}>{s.label}</Link>)}
+          <Link href="/dashboard" data-id="dashboard" aria-current={home ? undefined : 'page'}>Dashboard</Link>
           <span className="ind" ref={ind} aria-hidden="true" />
         </nav>
 

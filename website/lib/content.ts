@@ -26,11 +26,25 @@ export const STAGES: Stage[] = [
   { n: '11', title: 'Documentation', heading: 'Documentation' },
 ]
 
-/** Roadmap sections and their topic counts: 13 sections, 52 topics. */
-export const ROADMAP: [name: string, topics: number][] = [
-  ['Arrays', 8], ['Hashing', 2], ['Strings', 3], ['Binary Search', 3], ['Linked Lists', 4], ['Stacks & Queues', 4],
-  ['Recursion & Backtracking', 4], ['Trees', 4], ['Heaps', 4], ['Graphs', 5], ['Greedy', 2], ['Dynamic Programming', 6],
-  ['Advanced Topics', 3],
+/** Roadmap sections and their topics, in order: 14 sections, 53 topics (mixed reviews not included). Topic names match `currentTopic` exactly. */
+export const ROADMAP_TOPICS: [name: string, topics: string[]][] = [
+  ['Arrays', ['Array Basics', 'Prefix Sum', 'Two Pointers', 'Sliding Window', "Kadane's Algorithm", 'Sorting & Intervals', 'Cyclic Sort', 'Matrix Traversal']],
+  ['Hashing', ['Hash Map & Hash Set', 'Hashing with Arrays']],
+  ['Strings', ['String Basics', 'String Two Pointers & Windows', 'String Matching']],
+  ['Binary Search', ['Binary Search Basics', 'Binary Search on Modified Arrays', 'Binary Search on Answer']],
+  ['Linked Lists', ['Linked List Basics', 'Fast & Slow Pointers', 'In-place Reversal', 'Merging Lists']],
+  ['Stacks & Queues', ['Stack Basics', 'Monotonic Stack', 'Queue & Deque', 'Monotonic Deque']],
+  ['Recursion & Backtracking', ['Recursion Basics', 'Subsets & Combinations', 'Permutations', 'Constraint Backtracking']],
+  ['Trees', ['Tree Traversals (DFS)', 'Tree BFS', 'Tree Path Problems', 'Binary Search Trees']],
+  ['Heaps', ['Heap Basics', 'Top K Elements', 'Two Heaps', 'K-way Merge']],
+  ['Graphs', ['Graph Traversal (BFS & DFS)', 'Topological Sort', 'Union Find', 'Shortest Paths', 'Minimum Spanning Tree']],
+  ['Greedy', ['Greedy Basics', 'Greedy with Sorting & Heaps']],
+  ['Dynamic Programming', ['1D Dynamic Programming', '2D Grid Dynamic Programming', 'Knapsack', 'Subsequence Dynamic Programming', 'String Dynamic Programming', 'Interval Dynamic Programming']],
+  ['Advanced Topics', ['Tries', 'Bit Manipulation', 'Segment Tree & Fenwick Tree']],
+  ['Math', ['Math & Number Theory']],
 ]
+
+/** Roadmap sections and their topic counts. */
+export const ROADMAP: [name: string, topics: number][] = ROADMAP_TOPICS.map(([name, topics]) => [name, topics.length])
 
 export const TOPIC_COUNT = ROADMAP.reduce((sum, [, n]) => sum + n, 0)

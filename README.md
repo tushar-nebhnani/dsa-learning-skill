@@ -6,7 +6,7 @@ A Claude skill that coaches a learner through DSA problems stage by stage, witho
 |---|---|---|
 | **DSA Learning Skill** | [dsa-learning-skill/](dsa-learning-skill/) | `SKILL.md`: a strict tutor that takes each problem from Stage 0 (setup) to Stage 11 (documentation and PDF). |
 | **DSA Progress MCP** | [dsa-progress-mcp/](dsa-progress-mcp/) | A remote MCP server (Streamable HTTP, Google sign-in) that stores the learner's preferences, solved problems and revisits in Postgres. |
-| **Website** | [website/](website/) | The homepage: a Next.js site, exported as static files, with the skill download, the MCP server URL and install steps. |
+| **Website** | [website/](website/) | The homepage (skill download, MCP server URL, install steps) and the dashboard, where a learner signs in with Google to see their progress. A Next.js site. |
 
 Without the MCP server the skill starts from zero every conversation. With it, the tutor greets a returning learner, skips setup questions it already has answers to, never repeats a solved problem, and brings back problems marked for revisit after 7 days.
 
@@ -112,7 +112,7 @@ The hosted server runs on **Render** (web service `dsa-progress-mcp`, Singapore 
 
 ### Website
 
-[website/](website/) builds to static files in `website/out/`, so any static host can serve it. On Render, create a static site with the build command `cd website && npm ci && npm run build`, the publish directory `website/out`, and `NEXT_PUBLIC_SITE_URL` set to the site's public URL. Its **Download the skill** buttons link to `releases/latest/download/dsa-learning-skill.zip`, so each GitHub release needs a `dsa-learning-skill.zip` asset built with:
+[website/](website/) runs as a Node server, because the dashboard signs learners in and reads their progress from the database. On Render, create a web service with the build command `cd website && npm ci --include=dev && npm run build`, the start command `cd website && npm start`, and the environment variables in [website/README.md](website/README.md#environment): `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET`. Add `<site URL>/api/auth/google/callback` to the Google OAuth client's authorized redirect URIs. Its **Download the skill** buttons link to `releases/latest/download/dsa-learning-skill.zip`, so each GitHub release needs a `dsa-learning-skill.zip` asset built with:
 
 ```bash
 zip -r -X dsa-learning-skill.zip dsa-learning-skill -x '*.DS_Store'

@@ -3,13 +3,17 @@
 import { animate } from 'motion'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { STAGES } from '@/lib/content'
-import { COMMANDS, DOWNLOAD_NAME, LINKS } from '@/lib/site'
+import { BASE_PATH, COMMANDS, DOWNLOAD_NAME, LINKS } from '@/lib/site'
 import { EASE_OUT, OPEN_PALETTE, TOGGLE_THEME, copyText, prefersReducedMotion } from '@/lib/motion'
 
 type Command = { label: string; kind: 'jump' | 'copy' | 'link' | 'view'; run: () => void }
 
-const scrollTo = (id: string, block: ScrollLogicalPosition = 'center') =>
-  document.getElementById(id)?.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block })
+// Sections live on the homepage; from any other page, a jump goes there first.
+const scrollTo = (id: string, block: ScrollLogicalPosition = 'center') => {
+  const el = document.getElementById(id)
+  if (el) el.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block })
+  else window.location.href = `${BASE_PATH}/#${id}`
+}
 
 /** The ⌘K button in the nav. */
 export function PaletteButton() {
@@ -37,6 +41,7 @@ export function CommandPalette() {
     { label: 'Go to memory', kind: 'jump', run: () => scrollTo('memory', 'start') },
     { label: 'Go to rules', kind: 'jump', run: () => scrollTo('rules', 'start') },
     { label: 'Go to install', kind: 'jump', run: () => scrollTo('install', 'start') },
+    { label: 'Open the dashboard', kind: 'link', run: () => { window.location.href = `${BASE_PATH}/dashboard` } },
     { label: 'Download the skill (.zip)', kind: 'link', run: () => { const a = document.createElement('a'); a.href = LINKS.download; a.download = DOWNLOAD_NAME; a.click() } },
     { label: 'Copy: add the MCP server', kind: 'copy', run: () => { void copyText(COMMANDS.addServer) } },
     { label: 'Copy: install the downloaded skill', kind: 'copy', run: () => { void copyText(COMMANDS.unzip) } },
