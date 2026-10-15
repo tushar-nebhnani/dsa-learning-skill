@@ -1,5 +1,7 @@
 // Facts the page repeats from the skill. Sources:
-// stages and loops → dsa-learning-skill/SKILL.md · roadmap → references/roadmap.md
+// stages and loops → dsa-learning-skill/SKILL.md · roadmap → references/roadmap.md · problems → references/problem-ladder.json (via lib/ladder.json)
+
+import ladder from './ladder.json'
 
 export type Stage = {
   n: string
@@ -26,25 +28,28 @@ export const STAGES: Stage[] = [
   { n: '11', title: 'Documentation', heading: 'Documentation' },
 ]
 
-/** Roadmap sections and their topics, in order: 14 sections, 53 topics (mixed reviews not included). Topic names match `currentTopic` exactly. */
-export const ROADMAP_TOPICS: [name: string, topics: string[]][] = [
-  ['Arrays', ['Array Basics', 'Prefix Sum', 'Two Pointers', 'Sliding Window', "Kadane's Algorithm", 'Sorting & Intervals', 'Cyclic Sort', 'Matrix Traversal']],
-  ['Hashing', ['Hash Map & Hash Set', 'Hashing with Arrays']],
-  ['Strings', ['String Basics', 'String Two Pointers & Windows', 'String Matching']],
-  ['Binary Search', ['Binary Search Basics', 'Binary Search on Modified Arrays', 'Binary Search on Answer']],
-  ['Linked Lists', ['Linked List Basics', 'Fast & Slow Pointers', 'In-place Reversal', 'Merging Lists']],
-  ['Stacks & Queues', ['Stack Basics', 'Monotonic Stack', 'Queue & Deque', 'Monotonic Deque']],
-  ['Recursion & Backtracking', ['Recursion Basics', 'Subsets & Combinations', 'Permutations', 'Constraint Backtracking']],
-  ['Trees', ['Tree Traversals (DFS)', 'Tree BFS', 'Tree Path Problems', 'Binary Search Trees']],
-  ['Heaps', ['Heap Basics', 'Top K Elements', 'Two Heaps', 'K-way Merge']],
-  ['Graphs', ['Graph Traversal (BFS & DFS)', 'Topological Sort', 'Union Find', 'Shortest Paths', 'Minimum Spanning Tree']],
-  ['Greedy', ['Greedy Basics', 'Greedy with Sorting & Heaps']],
-  ['Dynamic Programming', ['1D Dynamic Programming', '2D Grid Dynamic Programming', 'Knapsack', 'Subsequence Dynamic Programming', 'String Dynamic Programming', 'Interval Dynamic Programming']],
-  ['Advanced Topics', ['Tries', 'Bit Manipulation', 'Segment Tree & Fenwick Tree']],
-  ['Math', ['Math & Number Theory']],
-]
+export type Difficulty = 'easy' | 'medium' | 'hard'
+export type LadderProblem = { rung: number; title: string; difficulty: Difficulty; url: string }
+export type LadderTopic = { topic: string; section: string; type: 'core' | 'mixed'; problems: LadderProblem[] }
+
+/** lib/ladder.json, generated from references/problem-ladder.json by scripts/build-ladder.mjs: section → topic → problems, in roadmap order. */
+type LadderFile = Record<string, Record<string, Omit<LadderTopic, 'topic' | 'section'>>>
+
+/** Roadmap sections and their topics, in order, mixed reviews included. Topic names match `currentTopic` exactly. */
+export const ROADMAP_SECTIONS: [name: string, topics: LadderTopic[]][] = Object.entries(ladder as LadderFile)
+  .map(([section, topics]) => [section, Object.entries(topics).map(([topic, t]) => ({ topic, section, ...t }))])
+
+/** Every roadmap topic and mixed review in order, with its problems easiest first. */
+export const LADDER: LadderTopic[] = ROADMAP_SECTIONS.flatMap(([, topics]) => topics)
+
+/** Roadmap sections and their topics, in order: 14 sections, 53 topics (mixed reviews not included). */
+export const ROADMAP_TOPICS: [name: string, topics: string[]][] = ROADMAP_SECTIONS
+  .map(([name, topics]) => [name, topics.filter(t => t.type === 'core').map(t => t.topic)])
 
 /** Roadmap sections and their topic counts. */
 export const ROADMAP: [name: string, topics: number][] = ROADMAP_TOPICS.map(([name, topics]) => [name, topics.length])
 
 export const TOPIC_COUNT = ROADMAP.reduce((sum, [, n]) => sum + n, 0)
+
+/** Everything on the roadmap, mixed reviews included. */
+export const ROADMAP_ITEM_COUNT = LADDER.length

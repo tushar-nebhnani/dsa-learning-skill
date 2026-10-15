@@ -16,10 +16,16 @@ export const metadata: Metadata = {
   robots: { index: false, follow: true },
 }
 
-/** The time zone the browser reported, if it is one this server knows; UTC otherwise. */
+/**
+ * The time zone the browser reported, if it is one this server knows; UTC otherwise.
+ * Returned as the browser spelled it: Node would rename some zones (Asia/Kolkata → Asia/Calcutta),
+ * and the dashboard reloads whenever the name it gets back differs from its own.
+ */
 function timeZoneFrom(value: string | undefined) {
+  if (!value) return 'UTC'
   try {
-    return value ? new Intl.DateTimeFormat('en', { timeZone: value }).resolvedOptions().timeZone : 'UTC'
+    new Intl.DateTimeFormat('en', { timeZone: value })
+    return value
   } catch {
     return 'UTC'
   }

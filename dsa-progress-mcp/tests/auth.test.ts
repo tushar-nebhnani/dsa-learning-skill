@@ -144,6 +144,17 @@ describe("OAuth with Google sign-in", () => {
       assert.equal(await db.prisma.learner.count(), 0);
     });
 
+    it("treats a malformed state cookie as missing", async () => {
+      const clientId = await registerClient(baseUrl);
+      const { state } = await openLoginPage(baseUrl, clientId, pkcePair().challenge);
+      const res = await fetch(`${baseUrl}/oauth/google/callback?${new URLSearchParams({ state, code: "x" })}`, {
+        redirect: "manual",
+        headers: { Cookie: "dsa_oauth_state=%E0%A4%A" },
+      });
+      assert.equal(res.status, 400);
+      assert.match(await res.text(), /valid in this browser/);
+    });
+
     it("can't be replayed", async () => {
       const clientId = await registerClient(baseUrl);
       const { state } = await openLoginPage(baseUrl, clientId, pkcePair().challenge);
@@ -268,6 +279,18 @@ describe("OAuth with Google sign-in", () => {
         data: { expiresAt: new Date(Date.now() - 1000) },
       });
       assert.equal((await mcpStatus(baseUrl, expired.accessToken)).status, 401);
+    });
+
+    it("sweeps expired tokens on the next sign-in and keeps live ones", async () => {
+      const old = await signIn(baseUrl, googleUser("g-1"));
+      await db.prisma.oAuthToken.update({
+        where: { tokenHash: hashToken(old.accessToken) },
+        data: { expiresAt: new Date(Date.now() - 1000) },
+      });
+      await signIn(baseUrl, googleUser("g-2"));
+      assert.equal(await db.prisma.oAuthToken.count({ where: { tokenHash: hashToken(old.accessToken) } }), 0);
+      assert.equal(await db.prisma.oAuthToken.count({ where: { tokenHash: hashToken(old.refreshToken) } }), 1);
+      assert.equal(await db.prisma.oAuthToken.count(), 3);
     });
 
     it("doesn't accept a refresh token as an access token", async () => {

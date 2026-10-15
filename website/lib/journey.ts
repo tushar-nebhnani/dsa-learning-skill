@@ -2,9 +2,9 @@
 // Field names match the MCP tools (get_learner_profile, list_solved_problems, list_problems_to_revisit),
 // so real data can replace SAMPLE_JOURNEY without changing the page.
 
-import { ROADMAP_TOPICS } from './content'
+import { LADDER, ROADMAP_SECTIONS, type Difficulty, type LadderProblem, type LadderTopic } from './content'
 
-export type Difficulty = 'easy' | 'medium' | 'hard'
+export type { Difficulty, LadderProblem }
 export type Result = 'accepted' | 'partial' | 'not_solved'
 
 export type Problem = {
@@ -45,7 +45,7 @@ export const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard']
 export const RESULTS: Result[] = ['accepted', 'partial', 'not_solved']
 export const RESULT_LABEL: Record<Result, string> = { accepted: 'Accepted', partial: 'Partial', not_solved: 'Not solved' }
 
-/** Accepted problems needed to move on from a roadmap topic; at least one must be medium or hard (references/roadmap.md). */
+/** Accepted problems needed to move on from a roadmap topic; at least one must be medium or hard (references/roadmap.md). Finishing the topic's whole ladder also moves you on. */
 export const ACCEPTED_TO_MOVE_ON = 3
 
 const DAY = 86_400_000
@@ -71,29 +71,61 @@ export const formatMonth = (day: number) => month.format(day * DAY)
 /** "2 Sept" for a moment, on the learner's calendar. */
 export const formatDate = (at: string | number, timeZone?: string) => formatDay(dayNumber(at, timeZone))
 
+export type Comfort = Journey['profile']['preferences']['dsaComfort']
+
 export type TopicProgress = {
   topic: string
+  /** `mixed` for a mixed review; null for a topic that isn't in the ladder. */
+  type: LadderTopic['type'] | null
   solved: number
   accepted: number
   /** An accepted medium or hard problem. */
   harder: boolean
-  /** The roadmap's moving-on rule is met. */
+  /** Problems in the topic's ladder, and how many of them are solved (in any topic). */
+  ladderSize: number
+  ladderSolved: number
+  /** The problem the tutor gives next in this topic; null once there is none left. */
+  next: LadderProblem | null
+  /** The roadmap's moving-on rule is met, or the whole ladder is solved. */
   cleared: boolean
 }
 
-export function topicProgress(problems: Problem[], topic: string): TopicProgress {
+export const ladderTopic = (topic: string) => LADDER.find(t => same(t.topic, topic)) ?? null
+
+/** The ladder entry with this title, if any. Titles match exactly, as the tutor records them. */
+export const ladderProblem = (title: string) => LADDER_BY_TITLE.get(title) ?? null
+const LADDER_BY_TITLE = new Map(LADDER.flatMap(t => t.problems.map(p => [p.title, p] as const)))
+
+/**
+ * The tutor's pick (SKILL.md, Stage 0 Step 5): the lowest rung whose title isn't solved in any topic.
+ * An intermediate or advanced learner skips the easy rungs, and only gets them once nothing harder is left.
+ */
+export function nextProblem(ladder: LadderTopic, solved: Set<string>, comfort: Comfort): LadderProblem | null {
+  const open = ladder.problems.filter(p => !solved.has(p.title))
+  const skipEasy = comfort === 'intermediate' || comfort === 'advanced'
+  return (skipEasy && open.find(p => p.difficulty !== 'easy')) || open[0] || null
+}
+
+export function topicProgress(problems: Problem[], topic: string, comfort: Comfort = null): TopicProgress {
   const rows = problems.filter(p => same(p.topic, topic))
   const accepted = rows.filter(p => p.result === 'accepted')
   const harder = accepted.some(p => p.difficulty !== 'easy')
-  return { topic, solved: rows.length, accepted: accepted.length, harder, cleared: accepted.length >= ACCEPTED_TO_MOVE_ON && harder }
+  const ladder = ladderTopic(topic)
+  const titles = new Set(problems.map(p => p.title))
+  const ladderSolved = ladder ? ladder.problems.filter(p => titles.has(p.title)).length : 0
+  const done = ladder !== null && ladderSolved === ladder.problems.length
+  return {
+    topic: ladder?.topic ?? topic, type: ladder?.type ?? null, solved: rows.length, accepted: accepted.length, harder,
+    ladderSize: ladder?.problems.length ?? 0, ladderSolved, next: ladder ? nextProblem(ladder, titles, comfort) : null,
+    cleared: (accepted.length >= ACCEPTED_TO_MOVE_ON && harder) || done,
+  }
 }
 
-/** Progress for every roadmap topic, by section, plus any topics the learner practised that aren't on the roadmap. */
-export function roadmapProgress(problems: Problem[]) {
-  const sections = ROADMAP_TOPICS.map(([name, topics]) => ({ name, topics: topics.map(t => topicProgress(problems, t)) }))
-  const onRoadmap = ROADMAP_TOPICS.flatMap(([, topics]) => topics)
-  const others = [...new Set(problems.map(p => p.topic))].filter(t => !onRoadmap.some(r => same(r, t)))
-  if (others.length) sections.push({ name: 'Other topics', topics: others.map(t => topicProgress(problems, t)) })
+/** Progress for every roadmap topic and mixed review, by section, plus any topics the learner practised that aren't on the roadmap. */
+export function roadmapProgress(problems: Problem[], comfort: Comfort = null) {
+  const sections = ROADMAP_SECTIONS.map(([name, topics]) => ({ name, topics: topics.map(t => topicProgress(problems, t.topic, comfort)) }))
+  const others = [...new Set(problems.map(p => p.topic))].filter(t => !ladderTopic(t))
+  if (others.length) sections.push({ name: 'Other topics', topics: others.map(t => topicProgress(problems, t, comfort)) })
   return sections
 }
 
@@ -167,19 +199,19 @@ export const SAMPLE_JOURNEY: Journey = {
     preferences: { preferredLanguage: 'Python', languageComfort: 'intermediate', dsaComfort: 'beginner', learningMode: 'roadmap', currentTopic: 'Sliding Window' },
   },
   problems: [
-    row('Reverse an Array In Place', 'Array Basics', 'easy', 'accepted', '2026-09-02'),
+    row('Remove Element', 'Array Basics', 'easy', 'accepted', '2026-09-02'),
     row('Move Zeroes', 'Array Basics', 'easy', 'accepted', '2026-09-04'),
     row('Rotate Array', 'Array Basics', 'medium', 'accepted', '2026-09-07'),
-    row('Range Sum Query', 'Prefix Sum', 'easy', 'accepted', '2026-09-10'),
+    row('Running Sum of 1d Array', 'Prefix Sum', 'easy', 'accepted', '2026-09-10'),
     row('Find Pivot Index', 'Prefix Sum', 'easy', 'accepted', '2026-09-12'),
-    row('Subarray Sum Equals K', 'Prefix Sum', 'medium', 'accepted', '2026-09-16', { last: '2026-09-24' }),
-    row('Product of Array Except Self', 'Prefix Sum', 'medium', 'accepted', '2026-09-19'),
-    row('Pair With Target Sum in Sorted Array', 'Two Pointers', 'easy', 'accepted', '2026-09-22'),
-    row('Remove Duplicates from Sorted Array', 'Two Pointers', 'easy', 'accepted', '2026-09-26'),
-    row('Container With Most Water', 'Two Pointers', 'medium', 'not_solved', '2026-09-29', { revisitAt: '2026-10-06' }),
+    row('Product of Array Except Self', 'Prefix Sum', 'medium', 'accepted', '2026-09-16', { last: '2026-09-24' }),
+    row('Subarray Sum Equals K', 'Prefix Sum', 'medium', 'accepted', '2026-09-19'),
+    row('Squares of a Sorted Array', 'Two Pointers', 'easy', 'accepted', '2026-09-22'),
+    row('Merge Sorted Array', 'Two Pointers', 'easy', 'accepted', '2026-09-26'),
+    row('Two Sum II - Input Array Is Sorted', 'Two Pointers', 'medium', 'not_solved', '2026-09-29', { revisitAt: '2026-10-06' }),
     row('3Sum', 'Two Pointers', 'medium', 'accepted', '2026-10-02'),
-    row('Maximum Sum Subarray of Size K', 'Sliding Window', 'easy', 'accepted', '2026-10-10'),
-    row('Longest Substring Without Repeating Characters', 'Sliding Window', 'medium', 'partial', '2026-10-11', { revisitAt: '2026-10-18' }),
-    row('Minimum Size Subarray Sum', 'Sliding Window', 'medium', 'accepted', '2026-10-12'),
+    row('Maximum Average Subarray I', 'Sliding Window', 'easy', 'accepted', '2026-10-10'),
+    row('Contains Duplicate II', 'Sliding Window', 'easy', 'partial', '2026-10-11', { revisitAt: '2026-10-18' }),
+    row('Maximum Number of Vowels in a Substring of Given Length', 'Sliding Window', 'medium', 'accepted', '2026-10-12'),
   ],
 }

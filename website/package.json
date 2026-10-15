@@ -4,14 +4,15 @@
   "private": true,
   "description": "The DSA Tutor homepage and dashboard: a Next.js site",
   "scripts": {
-    "predev": "node scripts/build-skill-zip.mjs",
+    "predev": "node scripts/build-skill-zip.mjs && node scripts/build-ladder.mjs",
     "dev": "next dev",
-    "prebuild": "node scripts/build-skill-zip.mjs",
+    "prebuild": "node scripts/build-skill-zip.mjs && node scripts/build-ladder.mjs",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "og-image": "node scripts/og-image.cjs",
-    "skill-zip": "node scripts/build-skill-zip.mjs"
+    "skill-zip": "node scripts/build-skill-zip.mjs",
+    "ladder": "node scripts/build-ladder.mjs"
   },
   "dependencies": {
     "motion": "^13.4.6",

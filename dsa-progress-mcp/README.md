@@ -77,6 +77,10 @@ Tool handlers are wrapped in `withToolErrors` (`src/utils/tool-error.ts`), which
 
 Edit `prisma/schema.prisma`, then `npm run db:migrate:dev -- --name <change>` (needs the database running).
 
+## Resetting the database
+
+`npm run db:reset` empties every table (learners, solved problems and all OAuth state) and keeps the schema, so the server works again straight away; every client has to sign in again. It asks you to type the database name first (`-- --yes` skips that), and refuses a non-local `DATABASE_URL` unless you pass `-- --allow-remote`.
+
 ## Tests
 
 ```bash

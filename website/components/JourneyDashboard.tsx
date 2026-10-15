@@ -18,9 +18,12 @@ export function JourneyDashboard({ journey, error }: { journey: Journey | null; 
   const go = useRef<HTMLAnchorElement>(null)
 
   // The server counts days on the learner's calendar; tell it which one, and redraw if it had to guess.
+  // Only when the cookie changes, so a zone the server can't use falls back to UTC once instead of reloading forever.
   useEffect(() => {
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-    document.cookie = `dsa_tz=${encodeURIComponent(timeZone)}; path=/; max-age=31536000; samesite=lax`
+    const value = encodeURIComponent(timeZone)
+    if (document.cookie.match(/(?:^|;\s*)dsa_tz=([^;]*)/)?.[1] === value) return
+    document.cookie = `dsa_tz=${value}; path=/; max-age=31536000; samesite=lax`
     if (journey && journey.timeZone !== timeZone) router.refresh()
   }, [journey, router])
 
@@ -28,8 +31,8 @@ export function JourneyDashboard({ journey, error }: { journey: Journey | null; 
     if (journey) return
     go.current?.focus()
     if (panel.current && !prefersReducedMotion()) animate(panel.current, { opacity: [0, 1], y: [-8, 0], scale: [0.98, 1] }, { duration: 0.22, ease: EASE_OUT })
-    // Keeps the keyboard on the dialog's one button.
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Tab') { e.preventDefault(); go.current?.focus() } }
+    // Keeps the keyboard on the dialog's one button, unless the command menu (opened over it) already handled the Tab.
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Tab' && !e.defaultPrevented) { e.preventDefault(); go.current?.focus() } }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [journey])

@@ -80,13 +80,16 @@ export async function googleIdentity(code: string): Promise<Omit<Session, 'exp'>
     body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: callbackUrl(), grant_type: 'authorization_code' }),
   }).catch(() => null)
   if (!res?.ok) return 'google'
-  const { id_token: idToken } = await res.json() as { id_token?: string }
-  const payload = idToken?.split('.')[1]
-  if (!payload) return 'google'
-  const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
-    sub?: string; aud?: string; email_verified?: boolean; name?: string; picture?: string
+  let claims: { sub?: string; aud?: string; email_verified?: boolean; name?: string; picture?: string }
+  try {
+    const { id_token: idToken } = await res.json() as { id_token?: string }
+    const payload = idToken?.split('.')[1]
+    if (!payload) return 'google'
+    claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))
+  } catch {
+    return 'google'
   }
-  if (!claims.sub || claims.aud !== clientId) return 'google'
+  if (!claims?.sub || claims.aud !== clientId) return 'google'
   if (!claims.email_verified) return 'unverified'
   return { sub: claims.sub, name: claims.name ?? null, picture: claims.picture ?? null }
 }

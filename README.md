@@ -17,7 +17,9 @@ Without the MCP server the skill starts from zero every conversation. With it, t
 3. **Stage 10: Feedback** from an interviewer's point of view.
 4. **Stage 11: Documentation.** The write-up follows [references/documentation-example.md](dsa-learning-skill/references/documentation-example.md), is saved with `record_solved_problem`, and is turned into a revision PDF.
 
-In `roadmap` mode, topics follow [references/roadmap.md](dsa-learning-skill/references/roadmap.md), which also sets the difficulty and moving-on rules.
+In `roadmap` mode, topics follow [references/roadmap.md](dsa-learning-skill/references/roadmap.md), which also sets the difficulty and moving-on rules. Every problem comes from [references/problem-ladder.json](dsa-learning-skill/references/problem-ladder.json). It is grouped by section and then by topic, and each topic's problems are in rungs, easiest first. The tutor gives the lowest rung the learner hasn't solved.
+
+The tutor helps less as the learner solves more. The **assistance level** is worked out from `totalSolved`: Level 1 (Guided, 0–9), Level 2 (Assisted, 10–24), Level 3 (Independent, 25–49), and Interview Mode from 50, which is not defined yet. Higher levels allow fewer hint attempts and Stage 2 test cases. The thresholds are all in one table under **Assistance Levels** in [SKILL.md](dsa-learning-skill/SKILL.md).
 
 ## Using it
 
@@ -87,7 +89,7 @@ To work on the website, run `npm install` and `npm run dev` from `website/`, the
 
 ## Testing
 
-**Server:** from `dsa-progress-mcp/`, run `npm run typecheck` and `npm test`. The tests use an in-memory Postgres, so Docker is not needed.
+**Server:** from `dsa-progress-mcp/`, run `npm run typecheck` and `npm test`. The tests use an in-memory Postgres, so Docker is not needed. To start a local database over from empty, run `npm run db:reset` (see [dsa-progress-mcp/README.md](dsa-progress-mcp/README.md#resetting-the-database)).
 
 **Skill:** with the server running, walk through these scenarios in a fresh session:
 
@@ -112,7 +114,7 @@ The hosted server runs on **Render** (web service `dsa-progress-mcp`, Singapore 
 
 ### Website
 
-[website/](website/) runs as a Node server, because the dashboard signs learners in and reads their progress from the database. On Render, create a web service with the build command `cd website && npm ci --include=dev && npm run build`, the start command `cd website && npm start`, and the environment variables in [website/README.md](website/README.md#environment): `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET`. Add `<site URL>/api/auth/google/callback` to the Google OAuth client's authorized redirect URIs. Its **Download the skill** buttons link to `releases/latest/download/dsa-learning-skill.zip`, so each GitHub release needs a `dsa-learning-skill.zip` asset built with:
+[website/](website/) runs as a Node server, because the dashboard signs learners in and reads their progress from the database. On Render, create a web service with the build command `cd website && npm ci --include=dev && npm run build`, the start command `cd website && npm start`, and the environment variables in [website/README.md](website/README.md#environment): `NEXT_PUBLIC_SITE_URL`, `DATABASE_URL`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `SESSION_SECRET`. Add `<site URL>/api/auth/google/callback` to the Google OAuth client's authorized redirect URIs. The build zips the skill into the site, so its **Download the skill** buttons serve the deployed commit's copy, and it regenerates `website/lib/ladder.json` from the problem ladder. If the host only uploads `website/`, the buttons fall back to `releases/latest/download/dsa-learning-skill.zip`, and that case needs a GitHub release with a `dsa-learning-skill.zip` asset built with:
 
 ```bash
 zip -r -X dsa-learning-skill.zip dsa-learning-skill -x '*.DS_Store'

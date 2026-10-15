@@ -6,11 +6,11 @@ The problems for every topic, in order, are in `references/problem-ladder.json`.
 
 ## How to use this roadmap
 
-- Each numbered item is one topic, and each `MR` item is a mixed review. Save its **bold name** exactly as written as `currentTopic` (including the en dash in a mixed review's name), so that problems are always filed under the same name. The name matches the topic's `topic` in `references/problem-ladder.json`.
+- Each numbered item is one topic, and each `MR` item is a mixed review. Save its **bold name** exactly as written as `currentTopic` (including the en dash in a mixed review's name), so that problems are always filed under the same name. The name matches the topic's key in `references/problem-ladder.json`.
 - For a new learner, start at topic 1. Otherwise, continue from the learner's `currentTopic`.
 - **Moving on:** move to the next topic once the learner has solved **3 problems** in the current topic with `result: accepted`, and at least one of them was `medium` or `hard`. Count only the `problems` returned by `list_solved_problems`. The learner may also ask to move on earlier, or to stay longer.
 - If the learner's `dsaComfort` is `intermediate` or `advanced`, they may skip a topic they already know well, but only if they ask to.
-- Within a topic, give the problems in `rung` order from `references/problem-ladder.json`: always the lowest rung the learner has not solved yet. The ladder already gets harder rung by rung. If the learner's `dsaComfort` is `intermediate` or `advanced`, start the topic at its first `Medium` rung instead.
+- Within a topic, give the problems in `rung` order from `references/problem-ladder.json`: always the lowest rung the learner has not solved yet. The ladder already gets harder rung by rung. If the learner's `dsaComfort` is `intermediate` or `advanced`, skip the `Easy` rungs: start the topic at its first rung that is not `Easy`.
 - If the learner has solved every problem in a topic, move on to the next topic even if the moving-on rule is not met.
 - A mixed review comes after the last topic of its section, and follows the same moving-on rule. Its problems are not labelled with a pattern on purpose: the learner has to recognise which pattern fits.
 

@@ -15,6 +15,8 @@ const skillZip = hasZip
 if (!hasZip) console.warn('⚠ public/dsa-learning-skill.zip is missing; download buttons will point to the GitHub release.')
 
 const nextConfig: NextConfig = {
+  // Stops `next dev` from writing AGENTS.md and CLAUDE.md into the project.
+  agentRules: false,
   basePath: basePath || undefined,
   env: { NEXT_PUBLIC_SKILL_ZIP: skillZip, NEXT_PUBLIC_BASE_PATH: basePath },
   images: { unoptimized: true },

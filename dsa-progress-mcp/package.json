@@ -13,6 +13,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:migrate:dev": "prisma migrate dev",
+    "db:reset": "tsx --env-file-if-exists=.env scripts/reset-db.ts",
     "postinstall": "prisma generate"
   },
   "author": "",

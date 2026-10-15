@@ -2,9 +2,9 @@
 
 import { animate, stagger } from 'motion'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { TOPIC_COUNT } from '@/lib/content'
+import { ROADMAP_ITEM_COUNT } from '@/lib/content'
 import {
-  ACCEPTED_TO_MOVE_ON, DIFFICULTIES, RESULTS, RESULT_LABEL, dailyActivity, formatDate, formatDay, formatMonth, revisits, roadmapProgress, topicProgress, weeklyActivity,
+  ACCEPTED_TO_MOVE_ON, DIFFICULTIES, RESULTS, RESULT_LABEL, dailyActivity, ladderProblem, formatDate, formatDay, formatMonth, revisits, roadmapProgress, topicProgress, weeklyActivity,
   type HeatDay, type Journey, type Problem, type TopicProgress,
 } from '@/lib/journey'
 import { EASE_OUT, prefersReducedMotion } from '@/lib/motion'
@@ -20,17 +20,18 @@ export function Dashboard({ journey, example = false, account }: { journey: Jour
   const root = useRef<HTMLDivElement>(null)
   const { problems, timeZone: tz, profile: { name, preferences: prefs } } = journey
 
-  const sections = useMemo(() => roadmapProgress(problems), [problems])
+  const sections = useMemo(() => roadmapProgress(problems, prefs.dsaComfort), [problems, prefs.dsaComfort])
   const weeks = useMemo(() => weeklyActivity(journey), [journey])
   const queue = useMemo(() => revisits(journey), [journey])
   const heat = useMemo(() => dailyActivity(journey), [journey])
 
   const accepted = problems.filter(p => p.result === 'accepted').length
-  const cleared = sections.flatMap(s => s.topics).filter(t => t.cleared).length
+  // Roadmap items only: topics off the roadmap (type null) aren't part of the count it's shown out of.
+  const cleared = sections.flatMap(s => s.topics).filter(t => t.type && t.cleared).length
   const topics = new Set(problems.map(p => p.topic.toLowerCase())).size
   const due = queue.filter(r => r.due).length
   const first = problems.reduce<string | null>((min, p) => (min === null || p.firstSolvedAt < min ? p.firstSolvedAt : min), null)
-  const current = prefs.currentTopic ? topicProgress(problems, prefs.currentTopic) : null
+  const current = prefs.currentTopic ? topicProgress(problems, prefs.currentTopic, prefs.dsaComfort) : null
 
   useLayoutEffect(() => {
     const el = root.current
@@ -84,7 +85,7 @@ export function Dashboard({ journey, example = false, account }: { journey: Jour
       <section className="tiles" aria-label="Summary">
         <Tile label="Problems solved" value={problems.length} note={first ? `first on ${formatDate(first, tz)}` : ''} lead />
         <Tile label="Accepted" value={accepted} of={problems.length} note={RESULTS.slice(1).map(r => `${problems.filter(p => p.result === r).length} ${RESULT_LABEL[r].toLowerCase()}`).join(' · ')} />
-        <Tile label="Topics cleared" value={cleared} of={TOPIC_COUNT} note="three accepted, one medium or hard" />
+        <Tile label="Topics cleared" value={cleared} of={ROADMAP_ITEM_COUNT} note="mixed reviews included" />
         <Tile label="Revisits due" value={due} note={`${queue.length} scheduled`} />
       </section>
 
@@ -101,7 +102,7 @@ export function Dashboard({ journey, example = false, account }: { journey: Jour
                 {queue.map(r => (
                   <li key={r.slug}>
                     <div>
-                      <b>{r.title}</b>
+                      <b><ProblemLink title={r.title} /></b>
                       <span className="note">{r.topic} · {r.difficulty} · {RESULT_LABEL[r.result].toLowerCase()} last time</span>
                     </div>
                     {r.due
@@ -196,6 +197,12 @@ function Heatmap({ heat }: { heat: ReturnType<typeof dailyActivity> }) {
   )
 }
 
+/** The title, linked to the problem's page when it's in the ladder. */
+function ProblemLink({ title }: { title: string }) {
+  const url = ladderProblem(title)?.url
+  return url ? <a className="tlink" href={url} target="_blank" rel="noreferrer">{title}</a> : <>{title}</>
+}
+
 const cellState = (t: TopicProgress) => (t.cleared ? 'cleared' : t.solved ? 'started' : 'todo')
 const STATE_LABEL = { cleared: 'cleared', started: 'in progress', todo: 'not started' }
 
@@ -216,7 +223,7 @@ function RoadmapMap({ sections, current, cleared }: { sections: ReturnType<typeo
                 <button
                   key={t.topic}
                   type="button"
-                  className={`cell ${cellState(t)}${isCurrent(t) ? ' cur' : ''}${picked === t ? ' on' : ''}`}
+                  className={`cell ${cellState(t)}${t.type === 'mixed' ? ' mr' : ''}${isCurrent(t) ? ' cur' : ''}${picked === t ? ' on' : ''}`}
                   aria-label={`${t.topic}: ${STATE_LABEL[cellState(t)]}${isCurrent(t) ? ', current topic' : ''}`}
                   onMouseEnter={() => setPicked(t)}
                   onFocus={() => setPicked(t)}
@@ -230,13 +237,14 @@ function RoadmapMap({ sections, current, cleared }: { sections: ReturnType<typeo
       </div>
       <p className="segcap" aria-live="polite">
         {picked
-          ? <><b>{picked.topic}</b> · {picked.solved ? `${picked.solved} solved, ${picked.accepted} accepted` : 'not started'}{isCurrent(picked) ? ' · current topic' : picked.cleared ? ' · cleared' : ''}</>
-          : <><b>{cleared} of {TOPIC_COUNT} topics</b> cleared. Hover a topic.</>}
+          ? <><b>{picked.topic}</b> · {picked.solved ? `${picked.solved} solved, ${picked.accepted} accepted` : 'not started'}{picked.ladderSize ? ` · ${picked.ladderSolved} of ${picked.ladderSize} in the ladder` : ''}{isCurrent(picked) ? ' · current topic' : picked.cleared ? ' · cleared' : ''}</>
+          : <><b>{cleared} of {ROADMAP_ITEM_COUNT}</b> topics and mixed reviews cleared. Hover a topic.</>}
       </p>
       <ul className="legend" aria-label="Legend">
         <li><i className="cell cleared" />Cleared</li>
         <li><i className="cell started" />In progress</li>
         <li><i className="cell todo" />Not started</li>
+        <li><i className="cell todo mr" />Mixed review</li>
         <li><i className="cell todo cur" />Current topic</li>
       </ul>
     </figure>
@@ -245,9 +253,10 @@ function RoadmapMap({ sections, current, cleared }: { sections: ReturnType<typeo
 
 function CurrentTopic({ progress, roadmap }: { progress: TopicProgress; roadmap: boolean }) {
   const filled = Math.min(progress.accepted, ACCEPTED_TO_MOVE_ON)
+  const { next } = progress
   return (
     <figure className="fig" data-rise>
-      <figcaption className="label">Current topic</figcaption>
+      <figcaption className="label">Current topic{progress.type === 'mixed' && ' · mixed review'}</figcaption>
       <h2 className="topic">{progress.topic}</h2>
       {roadmap ? (
         <>
@@ -258,10 +267,25 @@ function CurrentTopic({ progress, roadmap }: { progress: TopicProgress; roadmap:
             <li className={filled === ACCEPTED_TO_MOVE_ON ? 'ok' : ''}><Mark ok={filled === ACCEPTED_TO_MOVE_ON} />{filled} of {ACCEPTED_TO_MOVE_ON} accepted</li>
             <li className={progress.harder ? 'ok' : ''}><Mark ok={progress.harder} />One accepted at medium or hard</li>
           </ul>
-          <p className="note">{progress.cleared ? 'Both conditions are met, so the next session moves to the next topic.' : 'Meet both and the tutor moves you to the next topic.'}</p>
+          <p className="note">{progress.cleared ? 'You’ve cleared this topic, so the next session moves to the next one.' : 'Meet both, or solve the whole ladder, and the tutor moves you to the next topic.'}</p>
         </>
       ) : (
         <p className="note">{plural(progress.solved, 'problem')} solved here, {progress.accepted} accepted. In topic mode you stay until you choose another topic.</p>
+      )}
+      {progress.ladderSize > 0 && (
+        <div className="ladder">
+          <div className="lbar" role="img" aria-label={`${progress.ladderSolved} of ${progress.ladderSize} ladder problems solved`}>
+            <b data-grow="x" style={{ width: `${(progress.ladderSolved / progress.ladderSize) * 100}%` }} />
+          </div>
+          <p className="note">{progress.ladderSolved} of {progress.ladderSize} problems in this topic’s ladder solved.</p>
+          {next ? (
+            <p className="next">
+              <span className="label">Up next</span>
+              <a className="tlink" href={next.url} target="_blank" rel="noreferrer">{next.title}</a>
+              <small>{cap(next.difficulty)} · rung {next.rung}</small>
+            </p>
+          ) : <p className="note">Every problem in the ladder is solved.</p>}
+        </div>
       )}
     </figure>
   )
@@ -360,7 +384,7 @@ function ProblemLog({ problems, tz }: { problems: Problem[]; tz?: string }) {
             <tbody>
               {rows.map(p => (
                 <tr key={p.slug}>
-                  <td><b>{p.title}</b></td>
+                  <td><b><ProblemLink title={p.title} /></b></td>
                   <td>{p.topic}</td>
                   <td>{cap(p.difficulty)}</td>
                   <td><span className={`res ${p.result}`}><i aria-hidden="true" />{RESULT_LABEL[p.result]}</span></td>

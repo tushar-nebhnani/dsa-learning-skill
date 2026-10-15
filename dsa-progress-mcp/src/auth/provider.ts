@@ -85,8 +85,14 @@ export class DsaOAuthProvider implements OAuthServerProvider {
       throw new InvalidTargetError(`Unknown resource: ${params.resource.href}`);
     }
 
+    // Sign-ins are rare enough to sweep expired OAuth rows here; otherwise every refresh would leave two rows behind forever.
     const now = new Date();
-    await this.prisma.pendingAuthorization.deleteMany({ where: { expiresAt: { lt: now } } });
+    const expired = { where: { expiresAt: { lt: now } } };
+    await Promise.all([
+      this.prisma.pendingAuthorization.deleteMany(expired),
+      this.prisma.authorizationCode.deleteMany(expired),
+      this.prisma.oAuthToken.deleteMany(expired),
+    ]);
     const pending = await this.prisma.pendingAuthorization.create({
       data: {
         id: randomToken(),
